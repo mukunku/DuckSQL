@@ -169,11 +169,29 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to New query.
+        /// </summary>
+        internal static string NewQueryTabTitle {
+            get {
+                return ResourceManager.GetString("NewQueryTabTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Privacy policy.
         /// </summary>
         internal static string PrivacyPolicyLabelText {
             get {
                 return ResourceManager.GetString("PrivacyPolicyLabelText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cancelled:.
+        /// </summary>
+        internal static string QueryCancelledStatusText {
+            get {
+                return ResourceManager.GetString("QueryCancelledStatusText", resourceCulture);
             }
         }
         

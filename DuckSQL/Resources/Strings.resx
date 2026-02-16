@@ -165,9 +165,17 @@
     <value>Restart ParquetViewer?</value>
     <comment>Shown when the user clicks on a different UI language from the help menu</comment>
   </data>
+  <data name="NewQueryTabTitle" xml:space="preserve">
+    <value>New query</value>
+    <comment>Tab title for blank new tabs</comment>
+  </data>
   <data name="PrivacyPolicyLabelText" xml:space="preserve">
     <value>Privacy policy</value>
     <comment>Title to be shown before the privacy policy</comment>
+  </data>
+  <data name="QueryCancelledStatusText" xml:space="preserve">
+    <value>Cancelled:</value>
+    <comment>Shown in the status bar when an executing query is cancelled before it can finish</comment>
   </data>
   <data name="QueryFinishedStatusText" xml:space="preserve">
     <value>Finished in:</value>

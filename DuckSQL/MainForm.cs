@@ -1,214 +1,31 @@
-using DuckDB.NET.Data;
-using DuckSQL.Exceptions;
+using DuckSQL.Controls;
 using DuckSQL.Helpers;
-using DuckSQL.Types;
-using System.Collections;
-using System.ComponentModel;
-using System.Data;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
+using System.Reflection.Metadata.Ecma335;
+using System.Runtime.InteropServices;
 
 namespace DuckSQL
 {
     public partial class MainForm : Form
     {
-        private const string QUERY_FORMAT =
-        @"SELECT {0}
-FROM {1}
-LIMIT {2}
-OFFSET {3} ";
-
-        private Brush _splitterColor = Brushes.Silver;
-        private bool _wasByteArrayConversionErrorShown = false;
-
         public MainForm()
         {
             InitializeComponent();
-            this.mainSplitContainer.Paint += MainSplitContainer_Paint;
-            this.resultsGridView.ShowCopyAsWhereContextMenuItem = true;
-            this.resultsGridView.CopyAsWhereIcon = Properties.Resources.ducksql_logo_transparent_256; //TODO: Use `icon.ToBitmap()` instead?
-            this.resultsGridView.ColumnNameEscapeFormat = "\"{0}\"";
-            this.resultsGridView.DateValueEscapeFormat = "'{0}'";
         }
 
-        public MainForm(IEnumerable<string>? fields = null, string? filePath = null, int offset = 0, int limit = 1000) : this()
+        private void MainForm_Load(object sender, EventArgs e)
         {
-            var filePathSpecified = filePath is not null;
-            filePath ??= Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? string.Empty, "your-file.parquet");
-
-            var queryFields = fields is not null ? string.Join(',', fields.Select(f => $"\"{f}\"")) : "*";
-            var fromClause = filePath?.EndsWith(".parquet") == true ? $"'{filePath}'" : $"read_parquet('{filePath}')";
-            this.queryRichTextBox.Text = QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
-
-            if (!filePathSpecified)
-                this.executeQueryButton.Enabled = false; //start off disabled, so the user has to adjust the query
-        }
-
-        private void QueryEditor_Load(object sender, EventArgs e)
-        {
-            this.resultsGridView.AutoGenerateColumns = true;
-            this.queryExecutionStatusLabel.Visible = false;
-            this.timeElapsedLabel.Visible = false;
-
-            //Set caret to the end of the text
-            this.queryRichTextBox.SelectionStart = this.queryRichTextBox.Text.Length;
-            this.queryRichTextBox.SelectionLength = 0;
+            tabControl1.TabPages.Clear();
+            CreateNewTab();
+            tabControl1_SelectedIndexChanged(tabControl1, e);
 
             this.RefreshDateFormatMenuItemSelection();
             shareUsageDataToolStripMenuItem.Checked = AppSettings.AnalyticsDataGatheringConsent;
-
-            SetZoom(AppSettings.QueryEditorZoomLevel);
         }
 
-        private async void executeQueryButton_Click(object sender, EventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(this.queryRichTextBox.Text))
-                return; //no query to execute
-
-            this.executeQueryButton.Enabled = false;
-            this.Cursor = Cursors.WaitCursor;
-            this.queryExecutionStatusLabel.Visible = true;
-            this.timeElapsedLabel.Visible = true;
-            this.queryExecutionStatusLabel.Text = Resources.Strings.QueryRunningStatusText;
-            this.timeElapsedLabel.Text = "00:00";
-            this.resultsGridView.Enabled = false;
-
-            var result = new DataTable();
-            //var queryEvent = new ExecuteQueryEvent() { IsDuckDB = true };
-            try
-            {
-                var stopwatch = Stopwatch.StartNew();
-                var query = this.queryRichTextBox.Text;
-                var queryTask = Task.Run(() =>
-                {
-                    using var connection = new DuckDBConnection("Data Source=:memory:");
-                    connection.Open();
-
-                    using var command = connection.CreateCommand();
-                    command.CommandText = query;
-
-                    using var reader = command.ExecuteReader();
-                    result.Load(reader);
-                });
-
-                while (!queryTask.IsCompleted)
-                {
-                    await Task.Delay(100);
-                    this.timeElapsedLabel.Text = stopwatch.Elapsed.ToString("mm\\:ss");
-                }
-
-                stopwatch.Stop();
-                await queryTask;
-
-                this.queryExecutionStatusLabel.Text = Resources.Strings.QueryFinishedStatusText;
-                this.timeElapsedLabel.Text = stopwatch.Elapsed.ToString("mm\\:ss");
-                // queryEvent.IsValid = true;
-                // queryEvent.RunTimeMS = stopwatch.ElapsedMilliseconds;
-                // queryEvent.RecordCountFiltered = result.Rows.Count;
-                // queryEvent.ColumnCount = result.Columns.Count;
-            }
-            catch (Exception ex)
-            {
-                result.Dispose();
-                if (ex is InvalidCastException && ex.Message.Contains("The list contains null value"))
-                {
-                    MessageBox.Show(Resources.Errors.ListsWithNullsErrorMessage, Resources.Errors.ListsWithNullsErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-                else if (ex is DuckDBException && ex.Message.StartsWith("Parser Error:"))
-                {
-                    MessageBox.Show($"{Resources.Errors.InvalidQueryErrorMessage}{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-                        Resources.Errors.InvalidQueryErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                else if (ex is OverflowException && ex.Message.Contains("Value was either too large or too small for a Decimal"))
-                {
-                    MessageBox.Show(Resources.Errors.DecimalValueUnknownSizeTooLargeErrorMessageFormat
-                   .Format(DecimalOverflowException.MAX_DECIMAL_PRECISION,
-                       DecimalOverflowException.MAX_DECIMAL_SCALE),
-                   Resources.Errors.DecimalValueTooLargeErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                else
-                {
-                    //ExceptionEvent.FireAndForget(ex);
-                    MessageBox.Show(ex.Message, Resources.Errors.QueryExecutionErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                this.executeQueryButton.Enabled = true;
-                this.resultsGridView.Enabled = true;
-                this.Cursor = Cursors.Default;
-                return;
-            }
-            finally
-            {
-                //Fire and forget
-                //var _ = queryEvent.Record();
-            }
-
-            //Cleanup previous results
-            if (this.resultsGridView.DataSource is DataTable dt)
-            {
-                dt.Dispose();
-            }
-
-            try
-            {
-                this.resultsGridView.DataSource = ConvertValues(result);
-                this.showingCountLabel.Text = result.Rows.Count.ToString();
-            }
-            catch (Exception ex)
-            {
-                //ExceptionEvent.FireAndForget(ex);
-                MessageBox.Show($"{ex.Message}{Env.DoubleNewLine}{ex.StackTrace}",
-                    Resources.Errors.RenderResultsErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                this.executeQueryButton.Enabled = true;
-                this.resultsGridView.Enabled = true;
-                this.Cursor = Cursors.Default;
-            }
-        }
-
-        private void queryRichTextBox_TextChanged(object sender, FastColoredTextBoxNS.TextChangedEventArgs e)
-        {
-            this.executeQueryButton.Enabled = true;
-        }
-
-        private void zoomPercentage_Click(object sender, EventArgs e)
-        {
-            if (sender is ToolStripMenuItem menuItem && int.TryParse(menuItem.Tag?.ToString(), out int zoomPercentage))
-            {
-                SetZoom(zoomPercentage);
-            }
-        }
-
-        private void SetZoom(int? zoomPercentage)
-        {
-            zoomPercentage = Math.Clamp(zoomPercentage ?? 100, 100, 150);
-            this.queryRichTextBox.Zoom = zoomPercentage.Value;
-            this.zoomPercentageDropDown.Text = Resources.Strings.QueryZoomStatusTextFormat.Format(zoomPercentage);
-            AppSettings.QueryEditorZoomLevel = zoomPercentage.Value;
-
-            foreach (ToolStripMenuItem menuItem in this.zoomPercentageDropDown.DropDownItems)
-            {
-                menuItem.Checked = int.TryParse(menuItem.Tag?.ToString(), out int percentage) && percentage == zoomPercentage.Value;
-            }
-        }
-
-        private void querySyntaxDocsButton_Click(object sender, EventArgs e)
-        {
-            Process.Start(new ProcessStartInfo(Constants.DuckDBSqlSyntaxURL) { UseShellExecute = true });
-        }
-
-        private void queryRichTextBox_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.F5 || (e.Shift && e.KeyCode == Keys.Enter))
-            {
-                executeQueryButton.PerformClick();
-                e.Handled = true;
-                e.SuppressKeyPress = true;
-            }
-        }
-
-        private void QueryEditor_KeyUp(object sender, KeyEventArgs e)
+        private void MainForm_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.KeyValue == (int)Keys.Escape)
             {
@@ -217,247 +34,77 @@ OFFSET {3} ";
             }
         }
 
-        private void closeButton_Click(object sender, EventArgs e)
+        /// <summary>
+        /// Checks if the query editor is "empty". 
+        /// Meaning it has our <see cref="Resources.Strings.NewQueryTabTitle"/> title, no file path, and no query text.
+        /// </summary>
+        /// <returns></returns>
+        private bool IsEmptyQueryEditor(int tabIndex)
         {
-            this.Close();
+            if (tabIndex >= tabControl1.TabCount)
+                throw new ArgumentOutOfRangeException(nameof(tabIndex));
+
+            var tab = tabControl1.TabPages[tabIndex];
+            if (tab.Controls.Count == 0 || tab.Controls[0] is not QueryEditorControl queryEditor)
+            {
+                return true;
+            }
+
+            var hasNewQueryTitle = tab.Text.StartsWith(Resources.Strings.NewQueryTabTitle);
+            var hasQueryText = !string.IsNullOrWhiteSpace(queryEditor.QueryText);
+            var hasFilePath = !string.IsNullOrWhiteSpace(queryEditor.CurrentFilePath);
+
+            return hasNewQueryTitle && !hasQueryText && !hasFilePath;
         }
 
-        private void MainSplitContainer_Paint(object? sender, PaintEventArgs e)
+        private int? FindEmptyQueryEditorTabIndex()
         {
-            //Draw a line where the splitter is so users can tell they can resize the sections
-            var splitContainer = sender as SplitContainer;
-
-            if (splitContainer != null)
+            for (var i = 0; i < tabControl1.TabCount; i++)
             {
-                var rectangle = splitContainer.SplitterRectangle;
-                rectangle.Offset(0, 1);
-                rectangle.Height -= 2;
-                e.Graphics.FillRectangle(_splitterColor, rectangle);
-            }
-        }
-
-        private DataTable ConvertValues(DataTable intermediateResult)
-        {
-            var hasComplexType = false;
-            foreach (DataColumn column in intermediateResult.Columns)
-            {
-                if (column.DataType.ImplementsInterface<IDictionary>()
-                    || column.DataType.ImplementsInterface<IList>()
-                    || column.DataType == typeof(Stream))
+                if (IsEmptyQueryEditor(i))
                 {
-                    hasComplexType = true;
-                    break;
+                    return i;
                 }
             }
-
-            if (!hasComplexType)
-            {
-                //Nothing to convert
-                return intermediateResult;
-            }
-
-            var result = new DataTable();
-            foreach (DataColumn column in intermediateResult.Columns)
-            {
-                if (column.DataType == typeof(Dictionary<string, object?>))
-                {
-                    result.Columns.Add(new DataColumn(column.ColumnName, typeof(StructValue)));
-                }
-                else if (column.DataType.ImplementsInterface<IList>())
-                {
-                    result.Columns.Add(new DataColumn(column.ColumnName, typeof(ListValue)));
-                }
-                else if (column.DataType.ImplementsInterface<IDictionary>())
-                {
-                    result.Columns.Add(new DataColumn(column.ColumnName, typeof(MapValue)));
-                }
-                else if (column.DataType == typeof(Stream))
-                {
-                    result.Columns.Add(new DataColumn(column.ColumnName, typeof(ByteArrayValue)));
-                }
-                else
-                {
-                    result.Columns.Add(new DataColumn(column.ColumnName, column.DataType));
-                }
-            }
-
-            result.BeginLoadData();
-            foreach (DataRow row in intermediateResult.Rows)
-            {
-                var newRow = result.NewRow();
-                for (var i = 0; i < row.ItemArray.Length; i++)
-                {
-                    var value = row.ItemArray[i];
-                    newRow[i] = ConvertValue(value!);
-                }
-                result.Rows.Add(newRow);
-            }
-            result.EndLoadData();
-
-            return result;
-        }
-
-        private object ConvertValue(object? value)
-        {
-            if (value == DBNull.Value || value is null)
-            {
-                return DBNull.Value;
-            }
-            else if (value is Dictionary<string, object?> structDictionary)
-            {
-                var dataRow = new QueryResultDataRow(structDictionary.Keys.ToList(),
-                    structDictionary.Values.Select(ConvertValue).ToArray());
-
-                var structValue = new StructValue(dataRow);
-                return structValue;
-            }
-            else if (value is IList list)
-            {
-                var arrayList = new ArrayList(list.Count);
-                var listType = typeof(object);
-                for (var i = 0; i < list.Count; i++)
-                {
-                    var convertedListValue = ConvertValue(list[i]);
-                    arrayList.Add(convertedListValue);
-
-                    if (convertedListValue != DBNull.Value)
-                    {
-                        listType = convertedListValue.GetType();
-                    }
-                }
-
-                var listValue = new ListValue(arrayList, listType);
-                return listValue;
-            }
-            else if (value is IDictionary dictionary)
-            {
-                var keysList = new ArrayList(dictionary.Keys.Count);
-                var valuesList = new ArrayList(dictionary.Values.Count);
-                var keysType = typeof(object);
-                var valuesType = typeof(object);
-                foreach (var keyValuePair in UtilityMethods.PairEnumerables(
-                    dictionary.Keys.OfType<object?>(),
-                    dictionary.Values.OfType<object?>()))
-                {
-                    var convertedKey = ConvertValue(keyValuePair.Item1);
-                    var convertedValue = ConvertValue(keyValuePair.Item2);
-                    keysList.Add(convertedKey);
-                    valuesList.Add(convertedValue);
-                    if (convertedKey != DBNull.Value)
-                    {
-                        keysType = convertedKey.GetType();
-                    }
-                    if (convertedValue != DBNull.Value)
-                    {
-                        valuesType = convertedValue.GetType();
-                    }
-                }
-                var mapValue = new MapValue(
-                    keysList, keysType,
-                    valuesList, valuesType);
-                return mapValue;
-            }
-            else if (value is Stream byteArray)
-            {
-                //DuckDB doesn't seem to like byte array values. It fails to read after the first row with a memory access violation error.
-                if (!this._wasByteArrayConversionErrorShown)
-                {
-                    this._wasByteArrayConversionErrorShown = true;
-                    MessageBox.Show(
-                        Resources.Errors.ByteArraysNotSupportedErrorMessage,
-                        Resources.Errors.ByteArraysNotSupportedErrorTitle,
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-                return DBNull.Value;
-                /*
-                    using var ms = new MemoryStream();
-                    byteArray.CopyTo(ms); //MemoryAccessViolation thrown here on second row and beyond
-                    var byteArrayValue = new ByteArrayValue(ms.ToArray());
-                    return byteArrayValue;
-                */
-            }
-            else
-            {
-                return value;
-            }
-        }
-
-        private class QueryResultDataRow : IDataRowLite
-        {
-            public IReadOnlyCollection<string> ColumnNames { get; }
-
-            public object[] Row { get; }
-
-            public QueryResultDataRow(List<string> columnNames, object[] data)
-            {
-                this.ColumnNames = columnNames.AsReadOnly();
-                this.Row = data;
-            }
-
-            public object GetValue(string columnName)
-            {
-                var result = this.ColumnNames.Index().Where(pair => pair.Item == columnName).FirstOrDefault();
-                if (result == default)
-                    throw new ArgumentOutOfRangeException($"Column `{columnName}` doesn't exist");
-                return this.Row[result.Index];
-            }
-        }
-
-        //public override void SetTheme(Theme theme)
-        //{
-        //    if (DesignMode)
-        //    {
-        //        return;
-        //    }
-
-        //    base.SetTheme(theme);
-        //    this.resultsGridView.GridTheme = theme;
-        //    this.querySyntaxDocsButton.ForeColor = Color.Black;
-        //    this.executeQueryButton.ForeColor = Color.Black;
-        //    this.statusStrip.BackColor = theme.FormBackgroundColor;
-        //    this.statusStrip.ForeColor = theme.TextColor;
-        //    this.mainTableLayoutPanel.BackColor = theme.FormBackgroundColor;
-        //    this._splitterColor = new SolidBrush(theme.DisabledTextColor);
-        //    this.queryRichTextBox.IndentBackColor = theme.RowHeaderColor;
-        //    this.queryRichTextBox.ForeColor = theme.TextColor;
-        //    this.queryRichTextBox.SelectionColor = theme.SelectionBackColor;
-        //    this.queryRichTextBox.CaretColor = theme.TextColor;
-
-        //    if (theme == Theme.LightModeTheme)
-        //    {
-        //        this.queryRichTextBox.BackColor = Color.White;
-        //    }
-        //    else
-        //    {
-        //        this.queryRichTextBox.BackColor = theme.CellBackgroundColor;
-        //    }
-
-        //    this.statusStrip.Renderer = theme.ToolStripRenderer;
-        //}
-
-        private void copyTextMenuItem_Click(object sender, EventArgs e)
-        {
-            this.queryRichTextBox.Copy();
-        }
-
-        private void pasteTextMenuItem_Click(object sender, EventArgs e)
-        {
-            this.queryRichTextBox.Paste();
+            return null;
         }
 
         private void newToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            var tabIndex = FindEmptyQueryEditorTabIndex();
+            if (tabIndex is not null)
+            {
+                tabControl1.SelectedIndex = tabIndex.Value;
+                return;
+            }
 
+            tabIndex = CreateNewTab();
+            tabControl1.SelectedIndex = tabIndex.Value;
         }
 
-        private void fileOpenToolStripMenuItem_Click(object sender, EventArgs e)
+        private int CreateNewTab(string? queryTextOrFilePath = null)
         {
-
+            var newTab = new TabPage();
+            SetTabText(newTab, Resources.Strings.NewQueryTabTitle);
+            newTab.Tag = queryTextOrFilePath;
+            tabControl1.TabPages.Add(newTab);
+            return tabControl1.TabCount - 1;
         }
 
-        private void openFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void fileOpenToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            if (openFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                await OpenNewFileOrFolderAsync(openFileDialog.FileName);
+            }
+        }
 
+        private async void openFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (openFolderDialog.ShowDialog() == DialogResult.OK)
+            {
+                await OpenNewFileOrFolderAsync(openFolderDialog.SelectedPath);
+            }
         }
 
         private void saveResultsAsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -497,15 +144,18 @@ OFFSET {3} ";
                 }
 
                 this.RefreshDateFormatMenuItemSelection();
-                this.resultsGridView.UpdateDateFormats();
-                this.resultsGridView.Refresh();
+
+                // Refresh all query editor controls
+                foreach (TabPage tabPage in tabControl1.TabPages)
+                {
+                    if (tabPage.Controls[0] is QueryEditorControl editor)
+                    {
+                        editor.RefreshControl();
+                    }
+                }
             }
         }
 
-        /// <summary>
-        /// Checks <see cref="AppSettings.DateTimeDisplayFormat"/> and checks/unchecks 
-        /// the appropriate date format options located in the menu bar.
-        /// </summary>
         private void RefreshDateFormatMenuItemSelection()
         {
             this.defaultToolStripMenuItem.Checked = false;
@@ -550,17 +200,17 @@ OFFSET {3} ";
             var targetCulture = toolStripItem.Tag?.ToString();
             if (string.IsNullOrWhiteSpace(targetCulture))
             {
-                targetCulture = "en-US"; //our default culture
+                targetCulture = "en-US";
             }
 
             if (!UtilityMethods.TryParseCultureInfo(targetCulture, out CultureInfo? newCultureInfo))
             {
-                return; //invalid culture
+                return;
             }
 
             if (newCultureInfo.Equals(CultureInfo.CurrentUICulture))
             {
-                return; //no change
+                return;
             }
 
             if (MessageBox.Show(this,
@@ -568,7 +218,7 @@ OFFSET {3} ";
                 Resources.Strings.LanguageChangeConfirmationTitle,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
-                return; //user cancelled
+                return;
             }
 
             AppSettings.UserSelectedCulture = newCultureInfo;
@@ -579,6 +229,246 @@ OFFSET {3} ";
         {
             using var aboutBox = new AboutBox();
             aboutBox.ShowDialog();
+        }
+
+        private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (tabControl1.SelectedTab is null)
+                return;
+
+            if (tabControl1.SelectedTab.Controls.Count == 0)
+            {
+                //Lazily initialize the query editor
+                QueryEditorControl queryEditor;
+                var tag = tabControl1.SelectedTab.Tag?.ToString();
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    if (File.Exists(tag) || Directory.Exists(tag))
+                    {
+                        queryEditor = new QueryEditorControl(dataFilePath: tag) { Dock = DockStyle.Fill };
+                    }
+                    else
+                    {
+                        queryEditor = new QueryEditorControl() { Dock = DockStyle.Fill };
+                        queryEditor.QueryText = tag;
+                    }
+                }
+                else
+                {
+                    queryEditor = new QueryEditorControl { Dock = DockStyle.Fill };
+                }
+
+                AttachEventHandlers(queryEditor, tabControl1.SelectedTab);
+                tabControl1.SelectedTab.Controls.Add(queryEditor);
+            }
+            else
+            {
+                var queryEditor = (QueryEditorControl)tabControl1.SelectedTab.Controls[0];
+                queryEditor.RefreshControl();
+            }
+        }
+
+        private static void AttachEventHandlers(QueryEditorControl queryEditor, TabPage tab)
+        {
+            //Handle new tab title styling
+            queryEditor.QueryTextChanged += (s, args) =>
+            {
+                if (!tab.Text.StartsWith(Resources.Strings.NewQueryTabTitle))
+                {
+                    return; //This is a file backed tab. So it will be styled separately
+                }
+
+                var isEmpty = string.IsNullOrWhiteSpace(queryEditor.QueryText);
+                var hasModifiedIndicator = tab.Text.EndsWith('*');
+
+                if (hasModifiedIndicator && isEmpty)
+                {
+                    SetTabText(tab, tab.Text.Replace("*", string.Empty).Trim());
+                }
+                else if (!hasModifiedIndicator && !isEmpty)
+                {
+                    SetTabText(tab, tab.Text += " *");
+                }
+            };
+        }
+
+        private async void MainForm_DragDrop(object sender, DragEventArgs e)
+        {
+            var files = e.Data?.GetData(DataFormats.FileDrop) as string[];
+            if (files?.Length > 0)
+            {
+                await OpenNewFileOrFolderAsync(files[0]);
+            }
+        }
+
+        private async Task OpenNewFileOrFolderAsync(string fileOrFolderPath)
+        {
+            var tabIndex = CreateNewTab(fileOrFolderPath);
+            tabControl1.SelectedIndex = tabIndex;
+
+            if (tabControl1.TabCount > 1 && IsEmptyQueryEditor(tabControl1.TabCount - 2))
+            {
+                //If the last tab was an empty one, get rid of it
+                tabControl1.TabPages.RemoveAt(tabControl1.TabCount - 2);
+            }
+
+            SetTabText(tabControl1.SelectedTab, tabControl1.SelectedTab?.Text + " *"); //mark the tab as dirty
+        }
+
+        private static void SetTabText(TabPage? tab, string title)
+        {
+            tab?.Text = title;
+            if (tab is not null)
+            {
+                //Dynamically set label width
+                var width = MeasureStringWidth(tab.CreateGraphics(), tab.Font, title, false);
+                width += 24; //Add some buffer for the close button
+                width = Math.Clamp(width, 12, 120);
+                tab.Width = width;
+            }
+        }
+
+        private void MainForm_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
+                e.Effect = DragDropEffects.Copy;
+        }
+
+        private void TabControl1_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var tabPage = this.tabControl1.TabPages[e.Index];
+            var tabRect = this.tabControl1.GetTabRect(e.Index);
+            tabRect.Inflate(-2, -2);
+
+            var closeButtonRectangle = GetTabCloseButtonRectangle(e.Index);
+            if (_closeButtonHoveredTabIndex == e.Index)
+            {
+                if (_isMouseLeftButtonDown)
+                {
+                    ControlPaint.DrawButton(e.Graphics, closeButtonRectangle, ButtonState.Pushed);
+                }
+                else
+                {
+                    ControlPaint.DrawButton(e.Graphics, closeButtonRectangle, ButtonState.Normal);
+                }
+            }
+            else
+            {
+                ControlPaint.DrawButton(e.Graphics, closeButtonRectangle, ButtonState.Flat);
+            }
+
+            closeButtonRectangle.Inflate(-2, -2); //Add some padding inside the button
+            e.Graphics.DrawImage(Properties.Resources.close,
+                closeButtonRectangle.X,
+                closeButtonRectangle.Y,
+                closeButtonRectangle.Width,
+                closeButtonRectangle.Height);
+
+            TextRenderer.DrawText(e.Graphics, tabPage.Text, tabPage.Font,
+                tabRect, tabPage.ForeColor, TextFormatFlags.Left);
+        }
+
+        private Rectangle GetTabCloseButtonRectangle(int tabIndex)
+        {
+            const int iconSize = 12;
+            var tabPage = tabControl1.TabPages[tabIndex];
+            var tabRect = tabControl1.GetTabRect(tabIndex);
+            tabRect.Inflate(-2, -2);
+
+            return new Rectangle(
+                tabRect.Right - iconSize - 2,
+                tabRect.Top + (tabRect.Height - iconSize) / 2,
+                iconSize, iconSize
+                );
+        }
+
+        private static int MeasureStringWidth(Graphics gfx, Font font, string input, bool appendWhitespaceBuffer)
+        {
+            const string WHITESPACE_BUFFER = "#";
+            try
+            {
+                var width = (int)gfx.MeasureString(input + (appendWhitespaceBuffer ? WHITESPACE_BUFFER : string.Empty), font).Width;
+
+                if (width <= 0) //happens with really long strings sometimes
+                    return int.MaxValue;
+                else
+                    return width;
+            }
+            catch (Exception)
+            {
+                return int.MaxValue; //Assume worst case
+            }
+        }
+
+        private int? _closeButtonHoveredTabIndex = null;
+        private void tabControl1_MouseMove(object sender, MouseEventArgs e)
+        {
+            int? hoveredTabIndex = null;
+            for (var i = 0; i < tabControl1.TabCount; i++)
+            {
+                var closeButtonRectangle = GetTabCloseButtonRectangle(i);
+                if (closeButtonRectangle.Contains(e.Location))
+                {
+                    hoveredTabIndex = i;
+                    break;
+                }
+            }
+
+            if (hoveredTabIndex != _closeButtonHoveredTabIndex)
+            {
+                _closeButtonHoveredTabIndex = hoveredTabIndex;
+                tabControl1.Invalidate(); //Trigger redraw to show hover effect
+            }
+        }
+
+        private bool _isMouseLeftButtonDown = false;
+        private void tabControl1_MouseDown(object sender, MouseEventArgs e)
+        {
+            _isMouseLeftButtonDown = e.Button == MouseButtons.Left;
+
+            //Check if the close button was clicked
+            for (var i = 0; i < tabControl1.TabCount; i++)
+            {
+                var closeButtonRectangle = GetTabCloseButtonRectangle(i);
+                if (closeButtonRectangle.Contains(e.Location))
+                {
+                    tabControl1.Invalidate();
+                    break;
+                }
+            }
+        }
+
+        private void tabControl1_MouseUp(object sender, MouseEventArgs e)
+        {
+            _isMouseLeftButtonDown = false;
+
+            //Check if the close button was clicked
+            for (var i = 0; i < tabControl1.TabCount; i++)
+            {
+                var closeButtonRectangle = GetTabCloseButtonRectangle(i);
+                if (closeButtonRectangle.Contains(e.Location))
+                {
+                    CloseTab(i);
+                    break;
+                }
+            }
+        }
+
+        private void CloseTab(int tabIndex)
+        {
+            //Don't close if this is already the only, empty, tab
+            if (tabControl1.TabCount == 1 && IsEmptyQueryEditor(tabIndex))
+            {
+                tabControl1.Invalidate(); //Animate the close button
+                return;
+            }
+
+                tabControl1.TabPages.RemoveAt(tabIndex);
+            if (tabControl1.TabCount == 0)
+            {
+                CreateNewTab();
+                tabControl1_SelectedIndexChanged(tabControl1, EventArgs.Empty);
+            }
         }
     }
 }

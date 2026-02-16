@@ -153,8 +153,14 @@
   <data name="LanguageChangeConfirmationTitle" xml:space="preserve">
     <value>ParquetViewer'ı yeniden başlat?</value>
   </data>
+  <data name="NewQueryTabTitle" xml:space="preserve">
+    <value>Yeni sorgu</value>
+  </data>
   <data name="PrivacyPolicyLabelText" xml:space="preserve">
     <value>Gizlilik politikası</value>
+  </data>
+  <data name="QueryCancelledStatusText" xml:space="preserve">
+    <value>İptal:</value>
   </data>
   <data name="QueryFinishedStatusText" xml:space="preserve">
     <value>Tamamlandı:</value>
