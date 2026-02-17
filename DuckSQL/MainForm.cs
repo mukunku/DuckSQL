@@ -16,7 +16,6 @@ namespace DuckSQL
         {
             tabControl1.TabPages.Clear();
             tabControl1.CreateNewTab();
-            tabControl1.TriggerSelectedIndexChanged();
 
             this.RefreshDateFormatMenuItemSelection();
             shareUsageDataToolStripMenuItem.Checked = AppSettings.AnalyticsDataGatheringConsent;

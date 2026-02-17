@@ -5,6 +5,7 @@ namespace DuckSQL.Controls
         private int? _closeButtonHoveredTabIndex = null;
         private bool _isMouseLeftButtonDown = false;
         private int _rightClickedTabIndex = -1;
+        private static int _newQueryCount = 0;
 
         #region Context Menu
         private ContextMenuStrip _closeTabContextMenuStrip = new();
@@ -85,65 +86,72 @@ namespace DuckSQL.Controls
 
             _isMouseLeftButtonDown = e.Button == MouseButtons.Left;
 
-            //Check if the close button was clicked
-            for (var i = 0; i < TabCount; i++)
+            var tabIndex = CursorHoverCloseTabButtonIndex(e.Location);
+            if (tabIndex.HasValue)
             {
-                var closeButtonRectangle = GetTabCloseButtonRectangle(i);
-                if (closeButtonRectangle.Contains(e.Location))
-                {
-                    Invalidate();
-                    break;
-                }
+                Invalidate(); //Trigger redraw to show pressed effect
             }
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
             base.OnMouseUp(e);
-            var tabCount = TabCount;
 
             if (e.Button == MouseButtons.Left)
             {
                 _isMouseLeftButtonDown = false;
 
-                //Check if the close button was clicked
-                for (var i = 0; i < tabCount; i++)
+                var tabIndex = CursorHoverCloseTabButtonIndex(e.Location);
+                if (tabIndex.HasValue)
                 {
-                    var closeButtonRectangle = GetTabCloseButtonRectangle(i);
-                    if (closeButtonRectangle.Contains(e.Location))
-                    {
-                        CloseTab(i);
-                        break;
-                    }
+                    CloseTab(tabIndex.Value);
                 }
             }
             else if (e.Button == MouseButtons.Right)
             {
-                //Find which tab was right-clicked
-                for (var i = 0; i < tabCount; i++)
+                var tabIndex = CursorHoverTabIndex(e.Location);
+                if (tabIndex.HasValue)
                 {
-                    var tabRect = GetTabRect(i);
-                    if (tabRect.Contains(e.Location))
-                    {
-                        _rightClickedTabIndex = i;
-                        _closeTabContextMenuStrip.Show(this, e.Location);
-                        break;
-                    }
+                    _rightClickedTabIndex = tabIndex.Value;
+                    _closeTabContextMenuStrip.Show(this, e.Location);
                 }
             }
             else if (e.Button == MouseButtons.Middle)
             {
-                //Find which tab was right-clicked
-                for (var i = 0; i < tabCount; i++)
+                var tabIndex = CursorHoverTabIndex(e.Location);
+                if (tabIndex.HasValue)
                 {
-                    var tabRect = GetTabRect(i);
-                    if (tabRect.Contains(e.Location))
-                    {
-                        CloseTab(i);
-                        break;
-                    }
+                    CloseTab(tabIndex.Value);
                 }
             }
+        }
+
+        private int? CursorHoverTabIndex(Point cursorLocation)
+        {
+            for (var i = 0; i < TabCount; i++)
+            {
+                var tabRect = GetTabRect(i);
+                if (tabRect.Contains(cursorLocation))
+                {
+                    return i;
+                }
+            }
+
+            return null;
+        }
+
+        private int? CursorHoverCloseTabButtonIndex(Point cursorLocation)
+        {
+            for (var i = 0; i < TabCount; i++)
+            {
+                var closeButtonRectangle = GetTabCloseButtonRectangle(i);
+                if (closeButtonRectangle.Contains(cursorLocation))
+                {
+                    return i;
+                }
+            }
+
+            return null;
         }
 
         private Rectangle GetTabCloseButtonRectangle(int tabIndex)
@@ -161,10 +169,24 @@ namespace DuckSQL.Controls
 
         public int CreateNewTab(string? queryTextOrFilePath = null)
         {
+            var hasNoTabs = TabCount == 0;
+
+            var tabName = Resources.Strings.NewQueryTabTitle;
+            if (++_newQueryCount > 1)
+            {
+                tabName += $" {_newQueryCount}";
+            }
+
             var newTab = new CustomTabPage();
-            newTab.Text = Resources.Strings.NewQueryTabTitle;
+            newTab.Text = tabName;
             newTab.Tag = queryTextOrFilePath;
             TabPages.Add(newTab);
+
+            if (hasNoTabs)
+            {
+                OnSelectedIndexChanged(EventArgs.Empty); //Manually trigger to initialize the tab
+            }
+
             return TabCount - 1;
         }
 
@@ -247,9 +269,54 @@ namespace DuckSQL.Controls
             }
         }
 
-        public void TriggerSelectedIndexChanged()
+        public void CloseTabs(int[] tabIndexes)
         {
-            OnSelectedIndexChanged(EventArgs.Empty);
+            //Check if there are any dirt tabs being closed
+            var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*'));
+            if (dirtyTabCount == 1 && !ConfirmTabClosure(false))
+            {
+                return;
+            }
+            else if (dirtyTabCount > 1 && !ConfirmTabClosure(true))
+            {
+                return;
+            }
+
+            //Close tabs in descending order
+            foreach (var tabIndex in tabIndexes.OrderByDescending(i => i))
+            {
+                if (tabIndex < 0 || tabIndex >= TabCount)
+                    throw new ArgumentOutOfRangeException(nameof(tabIndex));
+
+                //Check if there's anything left to close
+                if (TabCount == 1 && IsEmptyQueryEditor(0))
+                {
+                    return;
+                }
+
+                TabPages.RemoveAt(tabIndex);
+            }
+            
+            if (TabCount == 0)
+            {
+                CreateNewTab();
+            }
+
+            Invalidate();
+        }
+
+        private bool ConfirmTabClosure(bool hasMultipleDirtyTabs)
+        {
+            if (!hasMultipleDirtyTabs)
+            {
+                return MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK;
+            }
+            else
+            {
+                return MessageBox.Show("Are you sure you want to close these tabs? Any unsaved changes will be lost.", "Unsaved changes detected",
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK;
+            }
         }
 
         public void CloseTab(int tabIndex)
@@ -264,12 +331,19 @@ namespace DuckSQL.Controls
                 return;
             }
 
+            var isDirty = TabPages[tabIndex].Text.Contains('*');
+            if (isDirty && !ConfirmTabClosure(false))
+            {
+                return;
+            }
+
             TabPages.RemoveAt(tabIndex);
+
             if (TabCount == 0)
             {
                 CreateNewTab();
-                TriggerSelectedIndexChanged();
             }
+
             Invalidate();
         }
 
@@ -311,26 +385,17 @@ namespace DuckSQL.Controls
             if (tabCount <= 1)
                 return;
 
-            //First close tabs on the right
-            for (var i = tabCount - 1; i > _rightClickedTabIndex; i--)
-            {
-                CloseTab(i);
-            }
-
-            //Now close tabs on the left
-            for (var i = 0; i < _rightClickedTabIndex; i++)
-            {
-                CloseTab(0);
-            }
+            var tabsToClose = Enumerable.Range(0, TabCount).Except([_rightClickedTabIndex]).ToArray();
+            CloseTabs(tabsToClose);
         }
 
         private void closeAllTabsToolStripMenuItem_Click(object? sender, EventArgs e)
         {
-            var tabCount = TabCount;
-            for (var i = 0; i < tabCount; i++)
-            {
-                CloseTab(0);
-            }
+            if (TabCount == 0)
+                return;
+
+            var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
+            CloseTabs(tabIndexes);
         }
     }
 }

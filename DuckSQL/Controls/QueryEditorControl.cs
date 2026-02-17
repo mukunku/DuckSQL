@@ -18,7 +18,7 @@ FROM {1}
 LIMIT {2}
 OFFSET {3} ";
 
-        private Brush _splitterColor = Brushes.Silver;
+        private Pen _splitterColor = new Pen(Brushes.Silver, 2) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
         private static bool _wasByteArrayConversionErrorShown = false; //TODO: This should ideally be kept per tab/instance
         private CancellationTokenSource? _queryCancellationToken = null;
 
@@ -233,12 +233,13 @@ OFFSET {3} ";
 
         private void MainSplitContainer_Paint(object? sender, PaintEventArgs e)
         {
+            //Draw a dashed splitter so it's easier to see and grab.
             if (sender is SplitContainer splitContainer)
             {
                 var rectangle = splitContainer.SplitterRectangle;
-                rectangle.Offset(0, 1);
-                rectangle.Height -= 2;
-                e.Graphics.FillRectangle(_splitterColor, rectangle);
+                rectangle.Offset(0, 2);
+                e.Graphics.DrawLine(_splitterColor, rectangle.X, rectangle.Y, 
+                    rectangle.X + rectangle.Width, rectangle.Y);
             }
         }
 
