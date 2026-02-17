@@ -237,11 +237,13 @@ namespace DuckSQL.Controls
 
                 AttachEventHandlers(queryEditor, SelectedTab);
                 SelectedTab.Controls.Add(queryEditor);
+                queryEditor.Focus();
             }
             else
             {
                 var queryEditor = (QueryEditorControl)SelectedTab.Controls[0];
                 queryEditor.RefreshControl();
+                queryEditor.Focus();
             }
         }
 
@@ -268,6 +270,7 @@ namespace DuckSQL.Controls
                 CreateNewTab();
                 TriggerSelectedIndexChanged();
             }
+            Invalidate();
         }
 
         private void AttachEventHandlers(QueryEditorControl queryEditor, TabPage tab)
@@ -281,16 +284,17 @@ namespace DuckSQL.Controls
                 }
 
                 var isEmpty = string.IsNullOrWhiteSpace(queryEditor.QueryText);
-                var hasModifiedIndicator = tab.Text.EndsWith('*');
+                var hasModifiedIndicator = tab.Text.Trim().EndsWith('*');
 
                 if (hasModifiedIndicator && isEmpty)
                 {
                     tab.Text = tab.Text.Replace("*", string.Empty).Trim();
-                    this.Invalidate();
+                    Invalidate();
                 }
                 else if (!hasModifiedIndicator && !isEmpty)
                 {
-                    tab.Text = tab.Text + " *";
+                    tab.Text = tab.Text.Trim() + " *";
+                    Invalidate();
                 }
             };
         }
@@ -327,16 +331,6 @@ namespace DuckSQL.Controls
             {
                 CloseTab(0);
             }
-        }
-    }
-
-    public class TabClosingEventArgs : EventArgs
-    {
-        public int TabIndex { get; }
-
-        public TabClosingEventArgs(int tabIndex)
-        {
-            TabIndex = tabIndex;
         }
     }
 }

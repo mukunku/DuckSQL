@@ -250,7 +250,6 @@ namespace DuckSQL
             tabControl1.Multiline = true;
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
-            tabControl1.SizeMode = TabSizeMode.Fixed;
             // 
             // tabControlImageList
             // 
@@ -281,6 +280,7 @@ namespace DuckSQL
             Load += MainForm_Load;
             DragDrop += MainForm_DragDrop;
             DragEnter += MainForm_DragEnter;
+            KeyDown += MainForm_KeyDown;
             queryEditorContextMenuStrip.ResumeLayout(false);
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();

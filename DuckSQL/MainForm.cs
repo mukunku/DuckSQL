@@ -197,13 +197,33 @@ namespace DuckSQL
                 tabControl1.TabPages.RemoveAt(tabControl1.TabCount - 2);
             }
 
-            tabControl1.SelectedTab?.Text = tabControl1.SelectedTab?.Text + " *"; //mark the tab as dirty
+            tabControl1.SelectedTab?.Text = tabControl1.SelectedTab?.Text.Trim() + " *"; //mark the tab as dirty
         }
 
         private void MainForm_DragEnter(object sender, DragEventArgs e)
         {
             if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
                 e.Effect = DragDropEffects.Copy;
+        }
+
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Control && e.KeyCode == Keys.W)
+            {
+                tabControl1.CloseTab(tabControl1.SelectedIndex);
+            }
+        }
+
+        //Source: https://stackoverflow.com/a/25648710/1458738
+        //Enabled DoubleBufferring for all child controls of the form
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams handleParam = base.CreateParams;
+                handleParam.ExStyle |= 0x02000000;   // WS_EX_COMPOSITED       
+                return handleParam;
+            }
         }
     }
 }

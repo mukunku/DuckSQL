@@ -40,7 +40,7 @@ OFFSET {3} ";
             InitializeComponent();
             mainSplitContainer.Paint += MainSplitContainer_Paint;
             resultsGridView.ShowCopyAsWhereContextMenuItem = true;
-            resultsGridView.CopyAsWhereIcon = Properties.Resources.ducksql_logo_transparent_256;
+            resultsGridView.CopyToClipboardIcon = Properties.Resources.copy_clipboard_icon.ToBitmap();
             resultsGridView.ColumnNameEscapeFormat = "\"{0}\"";
             resultsGridView.DateValueEscapeFormat = "'{0}'";
         }
