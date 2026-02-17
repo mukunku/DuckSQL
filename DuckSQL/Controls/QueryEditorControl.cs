@@ -143,6 +143,7 @@ OFFSET {3} ";
             if (this.resultsGridView.DataSource is DataTable dt)
             {
                 dt.Dispose();
+                this.resultsGridView.DataSource = null;
             }
 
             _queryCancellationToken = new CancellationTokenSource();
@@ -207,20 +208,11 @@ OFFSET {3} ";
 
         private void queryRichTextBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Shift && e.KeyCode == Keys.Enter)
+            if (e.Shift && e.KeyCode == Keys.Enter || e.KeyCode == Keys.F5)
             {
                 executeQueryButton.PerformClick();
                 e.Handled = true;
                 e.SuppressKeyPress = true;
-            }
-        }
-
-        private void mainSplitContainer_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.F5)
-            {
-                executeQueryButton.PerformClick();
-                e.Handled = true;
             }
             else if (e.KeyCode == Keys.Escape)
             {

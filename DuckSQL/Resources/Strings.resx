@@ -121,6 +121,18 @@
     <value>can't go back</value>
     <comment>Text shown when the quick peek window's link to go back to the source cell is clicked but the source cell no longer exists</comment>
   </data>
+  <data name="CloseAllTabsText" xml:space="preserve">
+    <value>Close all tabs</value>
+    <comment>Text shown in the right click context menu to close a tab</comment>
+  </data>
+  <data name="CloseOtherTabsText" xml:space="preserve">
+    <value>Close other tabs</value>
+    <comment>Text shown in the right click context menu to close a tab</comment>
+  </data>
+  <data name="CloseTabText" xml:space="preserve">
+    <value>Close</value>
+    <comment>Text shown in the right click context menu to close a tab</comment>
+  </data>
   <data name="CopyAsWhereConditionText" xml:space="preserve">
     <value>Copy as WHERE...</value>
     <comment>Text shown for creating a where condition based on the current selection in the right-click context menu</comment>

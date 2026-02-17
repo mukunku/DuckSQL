@@ -62,7 +62,7 @@ namespace DuckSQL
             aboutToolStripMenuItem = new ToolStripMenuItem();
             tabPage1 = new TabPage();
             queryEditorControl1 = new QueryEditorControl();
-            tabControl1 = new TabControl();
+            tabControl1 = new CustomTabControl();
             tabControlImageList = new ImageList(components);
             openFileDialog = new OpenFileDialog();
             openFolderDialog = new FolderBrowserDialog();
@@ -91,6 +91,7 @@ namespace DuckSQL
             // 
             // menuStrip1
             // 
+            menuStrip1.BackColor = SystemColors.Control;
             menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, editToolStripMenuItem, helpToolStripMenuItem });
             resources.ApplyResources(menuStrip1, "menuStrip1");
             menuStrip1.Name = "menuStrip1";
@@ -245,17 +246,11 @@ namespace DuckSQL
             tabControl1.Controls.Add(tabPage1);
             resources.ApplyResources(tabControl1, "tabControl1");
             tabControl1.DrawMode = TabDrawMode.OwnerDrawFixed;
-            tabControl1.HotTrack = true;
             tabControl1.ImageList = tabControlImageList;
             tabControl1.Multiline = true;
             tabControl1.Name = "tabControl1";
             tabControl1.SelectedIndex = 0;
             tabControl1.SizeMode = TabSizeMode.Fixed;
-            tabControl1.DrawItem += TabControl1_DrawItem;
-            tabControl1.SelectedIndexChanged += tabControl1_SelectedIndexChanged;
-            tabControl1.MouseDown += tabControl1_MouseDown;
-            tabControl1.MouseMove += tabControl1_MouseMove;
-            tabControl1.MouseUp += tabControl1_MouseUp;
             // 
             // tabControlImageList
             // 
@@ -280,12 +275,12 @@ namespace DuckSQL
             Controls.Add(tabControl1);
             Controls.Add(menuStrip1);
             Icon = Properties.Resources.ducksql_logo_transparent_icon;
+            KeyPreview = true;
             MainMenuStrip = menuStrip1;
             Name = "MainForm";
             Load += MainForm_Load;
             DragDrop += MainForm_DragDrop;
             DragEnter += MainForm_DragEnter;
-            KeyUp += MainForm_KeyUp;
             queryEditorContextMenuStrip.ResumeLayout(false);
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
@@ -322,7 +317,7 @@ namespace DuckSQL
         private ToolStripMenuItem aboutToolStripMenuItem;
         private ToolStripMenuItem shareUsageDataToolStripMenuItem;
         private TabPage tabPage1;
-        private TabControl tabControl1;
+        private CustomTabControl tabControl1;
         private QueryEditorControl queryEditorControl1;
         private OpenFileDialog openFileDialog;
         private FolderBrowserDialog openFolderDialog;

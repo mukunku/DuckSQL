@@ -70,6 +70,33 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Close all tabs.
+        /// </summary>
+        internal static string CloseAllTabsText {
+            get {
+                return ResourceManager.GetString("CloseAllTabsText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Close other tabs.
+        /// </summary>
+        internal static string CloseOtherTabsText {
+            get {
+                return ResourceManager.GetString("CloseOtherTabsText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Close.
+        /// </summary>
+        internal static string CloseTabText {
+            get {
+                return ResourceManager.GetString("CloseTabText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Copy as WHERE....
         /// </summary>
         internal static string CopyAsWhereConditionText {

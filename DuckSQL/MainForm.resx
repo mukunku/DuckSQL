@@ -161,28 +161,6 @@
   <data name="&gt;&gt;queryEditorContextMenuStrip.Type" xml:space="preserve">
     <value>System.Windows.Forms.ContextMenuStrip, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
-  <data name="closeButton.Location" type="System.Drawing.Point, System.Drawing">
-    <value>0, 0</value>
-  </data>
-  <data name="closeButton.Size" type="System.Drawing.Size, System.Drawing">
-    <value>1, 1</value>
-  </data>
-  <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="closeButton.TabIndex" type="System.Int32, mscorlib">
-    <value>1</value>
-  </data>
-  <data name="&gt;&gt;closeButton.Name" xml:space="preserve">
-    <value>closeButton</value>
-  </data>
-  <data name="&gt;&gt;closeButton.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="&gt;&gt;closeButton.Parent" xml:space="preserve">
-    <value>$this</value>
-  </data>
-  <data name="&gt;&gt;closeButton.ZOrder" xml:space="preserve">
-    <value>2</value>
-  </data>
   <metadata name="executeQueryKeyboardShortcutToolTip.TrayLocation" type="System.Drawing.Point, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
     <value>337, 17</value>
   </metadata>
@@ -220,6 +198,7 @@
   <data name="toolStripSeparator2.Size" type="System.Drawing.Size, System.Drawing">
     <value>238, 6</value>
   </data>
+  <assembly alias="mscorlib" name="mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   <data name="saveResultsAsToolStripMenuItem.Enabled" type="System.Boolean, mscorlib">
     <value>False</value>
   </data>
@@ -347,7 +326,7 @@
     <value>$this</value>
   </data>
   <data name="&gt;&gt;menuStrip1.ZOrder" xml:space="preserve">
-    <value>3</value>
+    <value>2</value>
   </data>
   <data name="queryEditorControl1.Dock" type="System.Windows.Forms.DockStyle, System.Windows.Forms">
     <value>Fill</value>
@@ -412,17 +391,17 @@
         AAEAAAD/////AQAAAAAAAAAMAgAAAEZTeXN0ZW0uV2luZG93cy5Gb3JtcywgQ3VsdHVyZT1uZXV0cmFs
         LCBQdWJsaWNLZXlUb2tlbj1iNzdhNWM1NjE5MzRlMDg5BQEAAAAmU3lzdGVtLldpbmRvd3MuRm9ybXMu
         SW1hZ2VMaXN0U3RyZWFtZXIBAAAABERhdGEHAgIAAAAJAwAAAA8DAAAAJAMAAAJNU0Z0AUkBTAMBAQAB
-        OAEAATgBAAEQAQABEAEABP8BIQEACP8BQgFNATYHAAE2AwABKAMAAUADAAEQAwABAQEAASAGAAEQEgAD
-        VwHCA1gB1QMVAR0oAAMVAR0DWAHVA1cBwsAAA1kB0QMAAf8DUwHdAxUBHSAAAxUBHQNTAd0DAAH/A1gB
-        0MAAAxIBFwNYAdUDAAH/A1IB4AMYASAYAAMVAR0DVQHcAwAB/wNXAdoDFAEbxAADEgEXA1gB1QMAAf8D
-        UgHgAxgBIBAAAxUBHQNVAdwDAAH/A1cB2gMUARvMAAMSARcDWAHVAwAB/wNSAeADGAEgCAADFQEdA1UB
-        3AMAAf8DVwHaAxQBG9QAAxIBFwNYAdUDAAH/A1IB4AMYASADFQEdA1UB3AMAAf8DVwHaAxQBG9wAAxMB
-        GgNWAdkDAAH/A1MB3QNTAd0DAAH/A1YB2QMTARrkAAMSARcDWAHVAwAB/wMAAf8DVwHaAxQBG+gAAxUB
-        HANWAdsDAAH/AwAB/wNSAeADGAEg5AADFQEdA1UB3AMAAf8DVgHZA1YB2QMAAf8DVQHcAxUBHdwAAxUB
-        HANWAdsDAAH/A1cB2gMUARsDEgEXA1gB1QMAAf8DUgHgAxgBINQAAxUBHANWAdsDAAH/A1cB2gMUARsI
-        AAMSARcDWAHVAwAB/wNSAeADGAEgzAADFQEcA1YB2wMAAf8DVwHaAxQBGxAAAxIBFwNYAdUDAAH/A1IB
-        4AMYASDEAAMVARwDVgHbAwAB/wNXAdoDFAEbGAADEgEXA1gB1QMAAf8DUgHgAxgBIMAAA1kB1AMAAf8D
-        VgHZAxMBGiAAAxMBGgNWAdkDAAH/A1gB08AAA1cBvANaAc8DEwEaKAADEwEaA1oBzwNXAbzAAAFCAU0B
+        YAEAAWABAAEQAQABEAEABP8BIQEACP8BQgFNATYHAAE2AwABKAMAAUADAAEQAwABAQEAASAGAAEQEgAD
+        VwHCA18B1QMVAR0oAAMVAR0DXwHVA1cBwsAAA10B0QMAAf8DXQHdAxUBHSAAAxUBHQNdAd0DAAH/A1sB
+        0MAAAxIBFwNfAdUDAAH/A10B4AMYASAYAAMVAR0DXQHcAwAB/wNfAdoDFAEbxAADEgEXA18B1QMAAf8D
+        XQHgAxgBIBAAAxUBHQNdAdwDAAH/A18B2gMUARvMAAMSARcDXwHVAwAB/wNdAeADGAEgCAADFQEdA10B
+        3AMAAf8DXwHaAxQBG9QAAxIBFwNfAdUDAAH/A10B4AMYASADFQEdA10B3AMAAf8DXwHaAxQBG9wAAxMB
+        GgNcAdkDAAH/A10B3QNdAd0DAAH/A1wB2QMTARrkAAMSARcDXwHVAwAB/wMAAf8DXwHaAxQBG+gAAxUB
+        HANeAdsDAAH/AwAB/wNdAeADGAEg5AADFQEdA10B3AMAAf8DXAHZA1wB2QMAAf8DXQHcAxUBHdwAAxUB
+        HANeAdsDAAH/A18B2gMUARsDEgEXA18B1QMAAf8DXQHgAxgBINQAAxUBHANeAdsDAAH/A18B2gMUARsI
+        AAMSARcDXwHVAwAB/wNdAeADGAEgzAADFQEcA14B2wMAAf8DXwHaAxQBGxAAAxIBFwNfAdUDAAH/A10B
+        4AMYASDEAAMVARwDXgHbAwAB/wNfAdoDFAEbGAADEgEXA18B1QMAAf8DXQHgAxgBIMAAA10B1AMAAf8D
+        XAHZAxMBGiAAAxMBGgNcAdkDAAH/A1sB08AAA1cBvANdAc8DEwEaKAADEwEaA10BzwNXAbzAAAFCAU0B
         PgcAAT4DAAEoAwABQAMAARADAAEBAQABAQUAAYAXAAP/AQABHwH4BgABDwHwBgABBwHgBgABgwHBBgAB
         wQGDBgAB4AEHBgAB8AEPBgAB+AEfBgAB+AEfBgAB8AEPBgAB4AEHBgABwQGDBgABgwHBBgABBwHgBgAB
         DwHwBgABHwH4BgAL
@@ -441,7 +420,7 @@
     <value>tabControl1</value>
   </data>
   <data name="&gt;&gt;tabControl1.Type" xml:space="preserve">
-    <value>System.Windows.Forms.TabControl, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>DuckSQL.Controls.CustomTabControl, DuckSQL, Culture=neutral, PublicKeyToken=null</value>
   </data>
   <data name="&gt;&gt;tabControl1.Parent" xml:space="preserve">
     <value>$this</value>

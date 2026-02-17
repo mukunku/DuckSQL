@@ -120,6 +120,15 @@
   <data name="CantGoBackLinkButtonText" xml:space="preserve">
     <value>geri gidilemiyor</value>
   </data>
+  <data name="CloseAllTabsText" xml:space="preserve">
+    <value>Tüm sekmeleri kapat</value>
+  </data>
+  <data name="CloseOtherTabsText" xml:space="preserve">
+    <value>Diğer sekmeleri kapat</value>
+  </data>
+  <data name="CloseTabText" xml:space="preserve">
+    <value>Kapat</value>
+  </data>
   <data name="CopyAsWhereConditionText" xml:space="preserve">
     <value>WHERE olarak kopyala</value>
   </data>

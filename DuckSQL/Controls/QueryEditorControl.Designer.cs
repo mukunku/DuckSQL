@@ -87,7 +87,6 @@ namespace DuckSQL.Controls
             mainSplitContainer.Size = new Size(800, 600);
             mainSplitContainer.SplitterDistance = 200;
             mainSplitContainer.TabIndex = 0;
-            mainSplitContainer.KeyDown += mainSplitContainer_KeyDown;
             // 
             // mainTableLayoutPanel
             // 
