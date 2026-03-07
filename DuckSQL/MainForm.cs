@@ -30,15 +30,7 @@ namespace DuckSQL
 
         private void newToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            var tabIndex = tabControl1.FindEmptyQueryEditorTabIndex();
-            if (tabIndex is not null)
-            {
-                tabControl1.SelectedIndex = tabIndex.Value;
-                return;
-            }
-
-            tabIndex = tabControl1.CreateNewTab();
-            tabControl1.SelectedIndex = tabIndex.Value;
+            CreateNewTabOrSwitchToExisting();
         }
 
         private async void fileOpenToolStripMenuItem_Click(object sender, EventArgs e)
@@ -632,6 +624,61 @@ namespace DuckSQL
         private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
         {
             ToggleSaveResultsFileMenuItem();
+        }
+
+        private Rectangle? _debugRectangle;
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            
+            if (_debugRectangle.HasValue)
+            {
+                using var redBrush = new SolidBrush(Color.FromArgb(128, Color.Red));
+                e.Graphics.FillRectangle(redBrush, _debugRectangle.Value);
+            }
+        }
+
+        private void MainForm_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (tabControl1.TabCount == 0)
+                return; //shouldn't ever happen but let's be safe
+
+            //The tab control can't capture mouse click events in the empty space to the right of the last tab,
+            //so we handle double clicks on the form itself to allow users to open files by double-clicking in that empty space
+            var tabControlHotbarRectangle = tabControl1.GetTabRect(tabControl1.TabCount - 1);
+
+            var x = tabControl1.Location.X + tabControlHotbarRectangle.Width;
+            var y = tabControl1.Location.Y;
+            var width = tabControl1.ClientRectangle.Width - x;
+            var height = tabControlHotbarRectangle.Height;
+
+            if (width <= 1)
+                return; //case where we run out of empty space
+
+            var emptyHotbarAreaRectangle = new Rectangle(x, y, width, height);
+
+            _debugRectangle = emptyHotbarAreaRectangle;
+            this.Invalidate();
+
+            var wasEmptyHotbarDoubleClicked = emptyHotbarAreaRectangle.Contains(e.Location);
+            if (wasEmptyHotbarDoubleClicked)
+            {
+                CreateNewTabOrSwitchToExisting();
+            }
+        }
+
+        private void CreateNewTabOrSwitchToExisting()
+        {
+            var tabIndex = tabControl1.FindEmptyQueryEditorTabIndex();
+            if (tabIndex is not null)
+            {
+                tabControl1.SelectedIndex = tabIndex.Value;
+                return;
+            }
+
+            tabIndex = tabControl1.CreateNewTab();
+            tabControl1.SelectedIndex = tabIndex.Value;
         }
     }
 }

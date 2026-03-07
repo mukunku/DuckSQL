@@ -240,6 +240,7 @@ namespace DuckSQL
             resources.ApplyResources(queryEditorControl1, "queryEditorControl1");
             queryEditorControl1.Name = "queryEditorControl1";
             queryEditorControl1.QueryExecuted = null;
+            queryEditorControl1.QueryExecutionStarted = null;
             queryEditorControl1.QueryText = "";
             queryEditorControl1.QueryTextChanged = null;
             // 
@@ -252,6 +253,7 @@ namespace DuckSQL
             tabControl1.Multiline = true;
             tabControl1.Name = "tabControl1";
             tabControl1.QueryExecuted = null;
+            tabControl1.QueryExecutionStarted = null;
             tabControl1.SelectedIndex = 0;
             tabControl1.SelectedIndexChanged += tabControl1_SelectedIndexChanged;
             // 
@@ -284,6 +286,7 @@ namespace DuckSQL
             Load += MainForm_Load;
             DragDrop += MainForm_DragDrop;
             DragEnter += MainForm_DragEnter;
+            MouseDoubleClick += MainForm_MouseDoubleClick;
             KeyDown += MainForm_KeyDown;
             queryEditorContextMenuStrip.ResumeLayout(false);
             menuStrip1.ResumeLayout(false);

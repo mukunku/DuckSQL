@@ -21,8 +21,8 @@ namespace DuckSQL
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
 
         public EventHandler? OnShow { get; set; } = null;
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? OnHide { get; set; } = null;
 
         public LoadingIcon(string text, long totalSteps)
