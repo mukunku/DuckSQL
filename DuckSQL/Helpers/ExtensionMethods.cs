@@ -99,5 +99,7 @@ namespace DuckSQL.Helpers
             else
                 return enumerable;
         }
+
+        public static long ToMillisecondsSinceEpoch(this DateTime dateTime) => new DateTimeOffset(dateTime).ToUnixTimeMilliseconds();
     }
 }

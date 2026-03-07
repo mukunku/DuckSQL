@@ -21,7 +21,7 @@ namespace DuckSQL.Controls
         public EventHandler? QueryExecutionStarted { get; set; }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-        public EventHandler? QueryExecuted { get; set; }
+        public EventHandler<QueryEditorControl.QueryExecutedEventArgs>? QueryExecuted { get; set; }
 
         public CustomTabControl()
         {

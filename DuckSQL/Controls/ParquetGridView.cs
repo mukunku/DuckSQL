@@ -1,4 +1,5 @@
-﻿using DuckSQL.Helpers;
+﻿using DuckSQL.Analytics;
+using DuckSQL.Helpers;
 using DuckSQL.Types;
 using System.ComponentModel;
 using System.Data;
@@ -272,7 +273,7 @@ namespace DuckSQL.Controls
                     {
                         var uniqueCellTag = Guid.NewGuid();
                         var quickPeekForm = new QuickPeekForm(this.Columns[columnIndex].Name, image, uniqueCellTag, rowIndex, columnIndex);
-                        ShowQuickPeekForm(quickPeekForm, this[columnIndex, rowIndex], uniqueCellTag);
+                        ShowQuickPeekForm(quickPeekForm, this[columnIndex, rowIndex], uniqueCellTag, QuickPeekEvent.DataTypeId.Image);
                     }
                 }
             }
@@ -326,12 +327,12 @@ namespace DuckSQL.Controls
                 return;
             }
 
-            //var dataType = QuickPeekEvent.DataTypeId.Unknown;
+            var dataType = QuickPeekEvent.DataTypeId.Unknown;
             QuickPeekForm? quickPeekForm = null;
             var uniqueCellTag = Guid.NewGuid();
             if (clickedCell.Value is IListValue listValue)
             {
-                //dataType = QuickPeekEvent.DataTypeId.List;
+                dataType = QuickPeekEvent.DataTypeId.List;
 
                 var dt = new DataTable();
                 dt.Columns.Add(new DataColumn(this.Columns[e.ColumnIndex].Name, listValue.Type!));
@@ -347,7 +348,7 @@ namespace DuckSQL.Controls
             }
             else if (clickedCell.Value is IMapValue mapValue)
             {
-                //dataType = QuickPeekEvent.DataTypeId.Map;
+                dataType = QuickPeekEvent.DataTypeId.Map;
 
                 var dt = new DataTable();
                 dt.Columns.Add(new DataColumn($"key", mapValue.KeyType));
@@ -365,14 +366,14 @@ namespace DuckSQL.Controls
             }
             else if (clickedCell.Value is IStructValue structValue)
             {
-                //dataType = QuickPeekEvent.DataTypeId.Struct;
+                dataType = QuickPeekEvent.DataTypeId.Struct;
 
                 var dt = structValue.ToDataTable();
                 quickPeekForm = new QuickPeekForm(this.Columns[e.ColumnIndex].Name, dt, uniqueCellTag, e.RowIndex, e.ColumnIndex);
             }
             else if (clickedCell.Value is IByteArrayValue byteArray && byteArray.ToImage(out var image))
             {
-                //dataType = QuickPeekEvent.DataTypeId.Image;
+                dataType = QuickPeekEvent.DataTypeId.Image;
                 quickPeekForm = new QuickPeekForm(this.Columns[e.ColumnIndex].Name, image!, uniqueCellTag, e.RowIndex, e.ColumnIndex);
             }
             else
@@ -381,10 +382,10 @@ namespace DuckSQL.Controls
                 return;
             }
 
-            ShowQuickPeekForm(quickPeekForm, clickedCell, uniqueCellTag);
+            ShowQuickPeekForm(quickPeekForm, clickedCell, uniqueCellTag, dataType);
         }
 
-        private void ShowQuickPeekForm(QuickPeekForm quickPeekForm, DataGridViewCell clickedCell, Guid uniqueCellTag)
+        private void ShowQuickPeekForm(QuickPeekForm quickPeekForm, DataGridViewCell clickedCell, Guid uniqueCellTag, QuickPeekEvent.DataTypeId dataType)
         {
             clickedCell.Tag = uniqueCellTag;
 
@@ -434,7 +435,7 @@ namespace DuckSQL.Controls
             openQuickPeekForms.Remove((clickedCell.RowIndex, clickedCell.ColumnIndex)); //Remove any leftover value if the user navigated the file
             openQuickPeekForms.Add((clickedCell.RowIndex, clickedCell.ColumnIndex), quickPeekForm);
             quickPeekForm.Show(this.Parent ?? this);
-            //QuickPeekEvent.FireAndForget(dataType);
+            QuickPeekEvent.FireAndForget(dataType);
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -1078,7 +1079,7 @@ namespace DuckSQL.Controls
                     var toolstripMenuItem = new ToolStripMenuItem(supportedFormat.ToString());
                     toolstripMenuItem.Click += (object? _, EventArgs _) =>
                     {
-                        //ColumnFormattedEvent.FireAndForget(toolstripMenuItem.Text);
+                        ColumnFormattedEvent.FireAndForget(toolstripMenuItem.Text);
                         if (byteArrayColumnsWithFormatOverrides.ContainsKey(columnName))
                             byteArrayColumnsWithFormatOverrides[columnName] = supportedFormat;
                         else
@@ -1109,7 +1110,7 @@ namespace DuckSQL.Controls
                 { Checked = displayFormat == FloatDisplayFormat.Scientific };
                 scientificNotationMenuItem.Click += (object? _, EventArgs _) =>
                 {
-                    //ColumnFormattedEvent.FireAndForget(scientificNotationMenuItem.Text);
+                    ColumnFormattedEvent.FireAndForget(scientificNotationMenuItem.Text);
 
                     if (floatColumnsWithFormatOverrides.ContainsKey(columnName))
                         floatColumnsWithFormatOverrides[columnName] = FloatDisplayFormat.Scientific;
@@ -1125,7 +1126,7 @@ namespace DuckSQL.Controls
                 { Checked = displayFormat == FloatDisplayFormat.Decimal };
                 decimalNotationMenuItem.Click += (object? _, EventArgs _) =>
                 {
-                    //ColumnFormattedEvent.FireAndForget(decimalNotationMenuItem.Text);
+                    ColumnFormattedEvent.FireAndForget(decimalNotationMenuItem.Text);
 
                     if (floatColumnsWithFormatOverrides.ContainsKey(columnName))
                         floatColumnsWithFormatOverrides[columnName] = FloatDisplayFormat.Decimal;

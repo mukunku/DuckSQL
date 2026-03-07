@@ -1,4 +1,5 @@
 ﻿
+using DuckSQL.Analytics;
 using DuckSQL.Helpers;
 using DuckSQL.Types;
 using NAudio.FileFormats.Wav;
@@ -301,7 +302,7 @@ namespace DuckSQL.Controls
                 // Lets throttle events just in case. Not sure if it's necessary
                 if (!this._sentQuickPeekEvent)
                 {
-                    //QuickPeekEvent.FireAndForget(QuickPeekEvent.DataTypeId.Audio);
+                    QuickPeekEvent.FireAndForget(QuickPeekEvent.DataTypeId.Audio);
                     this._sentQuickPeekEvent = true;
                 }
             }

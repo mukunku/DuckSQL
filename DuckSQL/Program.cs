@@ -1,3 +1,4 @@
+using DuckSQL.Analytics;
 using DuckSQL.Helpers;
 
 namespace DuckSQL
@@ -38,6 +39,7 @@ namespace DuckSQL
 
         private static void ExceptionHandler(Exception ex)
         {
+            ExceptionEvent.FireAndForget(ex);
             MessageBox.Show($"{Resources.Errors.GenericErrorMessage} {Resources.Errors.CopyErrorMessageText}:{Env.DoubleNewLine}{ex}",
                 ex.Message, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }

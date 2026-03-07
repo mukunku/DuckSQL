@@ -1,15 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
+using DuckSQL.Analytics;
 using DuckSQL.Helpers;
 
 namespace DuckSQL
 {
     public partial class AboutBox : Form
     {
-        static AboutBox()
-        {
-        }
-
         public AboutBox()
         {
             InitializeComponent();
@@ -20,11 +17,11 @@ namespace DuckSQL
             this.textBoxDescription.Text = AssemblyDescription.Replace($"Privacy policy:", $"{Resources.Strings.PrivacyPolicyLabelText}:"); //HACK: to translate privacy policy text
             this.newVersionLabel.Image = null;
 
-            //if (!AmplitudeEvent.HasApiKey)
-            //{
-            //    this.textBoxDescription.Text = $"No Amplitude API Key!{Environment.NewLine}{Environment.NewLine}"
-            //        + this.textBoxDescription.Text;
-            //}
+            if (!AmplitudeEvent.HasApiKey)
+            {
+                this.textBoxDescription.Text = $"No Amplitude API Key!{Environment.NewLine}{Environment.NewLine}"
+                    + this.textBoxDescription.Text;
+            }
         }
 
         private void AboutBox_KeyUp(object sender, KeyEventArgs e)
@@ -56,7 +53,7 @@ namespace DuckSQL
             }
             catch (Exception ex)
             {
-                //ExceptionEvent.FireAndForget(ex);
+                ExceptionEvent.FireAndForget(ex);
                 this.newVersionLabel.Visible = false;
             }
         }

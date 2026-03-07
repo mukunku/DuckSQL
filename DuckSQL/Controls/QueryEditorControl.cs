@@ -28,7 +28,7 @@ OFFSET {3} ";
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? QueryExecutionStarted { get; set; }
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
-        public EventHandler? QueryExecuted { get; set; }
+        public EventHandler<QueryExecutedEventArgs>? QueryExecuted { get; set; }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public string QueryText
@@ -114,18 +114,20 @@ OFFSET {3} ";
 
                 if (ex is InvalidCastException && ex.Message.Contains("The list contains null value"))
                 {
-                    throw new QueryExecuteException(Resources.Errors.ListsWithNullsErrorTitle, Resources.Errors.ListsWithNullsErrorMessage);
+                    throw new QueryExecuteException(Resources.Errors.ListsWithNullsErrorTitle, Resources.Errors.ListsWithNullsErrorMessage) { Handled = true };
                 }
                 else if (ex is DuckDBException && ex.Message.StartsWith("Parser Error:"))
                 {
                     throw new QueryExecuteException(Resources.Errors.InvalidQueryErrorTitle,
-                        $"{Resources.Errors.InvalidQueryErrorMessage}{Env.DoubleNewLine}{ex.Message}");
+                        $"{Resources.Errors.InvalidQueryErrorMessage}{Env.DoubleNewLine}{ex.Message}")
+                    { Handled = true };
                 }
                 else if (ex is OverflowException && ex.Message.Contains("Value was either too large or too small for a Decimal"))
                 {
                     throw new QueryExecuteException(Resources.Errors.DecimalValueTooLargeErrorTitle,
                         Resources.Errors.DecimalValueUnknownSizeTooLargeErrorMessageFormat
-                        .Format(DecimalOverflowException.MAX_DECIMAL_PRECISION, DecimalOverflowException.MAX_DECIMAL_SCALE));
+                        .Format(DecimalOverflowException.MAX_DECIMAL_PRECISION, DecimalOverflowException.MAX_DECIMAL_SCALE))
+                    { Handled = true };
                 }
                 else
                 {
@@ -133,14 +135,7 @@ OFFSET {3} ";
                 }
             }
 
-            try
-            {
-                return ConvertValues(result);
-            }
-            catch (Exception ex)
-            {
-                throw new QueryExecuteException(Resources.Errors.RenderResultsErrorTitle, $"{ex.Message}{Env.DoubleNewLine}{ex.StackTrace}");
-            }
+            return result;
         }
 
         private async void executeQueryButton_Click(object sender, EventArgs e)
@@ -166,6 +161,7 @@ OFFSET {3} ";
 
             var stopwatch = Stopwatch.StartNew();
             var queryTask = ExecuteQueryAsync(this.queryRichTextBox.Text, _queryCancellationToken.Token);
+
             while (!queryTask.IsCompleted && !_queryCancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(50);
@@ -173,6 +169,7 @@ OFFSET {3} ";
             }
 
             stopwatch.Stop();
+            var queryDuration = stopwatch.Elapsed;
             var result = new DataTable();
             try
             {
@@ -182,14 +179,38 @@ OFFSET {3} ";
                 }
 
                 result = await queryTask;
-                this.resultsGridView.DataSource = result;
 
-                QueryExecuted?.Invoke(this, EventArgs.Empty);
+                stopwatch.Restart();
+                try
+                {
+                    //We need to convert complex types like: lists, structs, maps, and byte arrays so we can render them properly
+                    result = ConvertValues(result);
+                }
+                catch (Exception ex)
+                {
+                    throw new QueryExecuteException(Resources.Errors.RenderResultsErrorTitle, $"{ex.Message}{Env.DoubleNewLine}{ex.StackTrace}");
+                }
+                stopwatch.Stop();
+                var conversionDuration = stopwatch.Elapsed;
+
+                stopwatch.Restart();
+                this.resultsGridView.DataSource = result;
+                stopwatch.Stop();
+                var renderDuration = stopwatch.Elapsed;
+
+                QueryExecuted?.Invoke(this, new QueryExecutedEventArgs(queryDuration, conversionDuration, renderDuration));
             }
             catch (QueryExecuteException ex)
             {
-                //TODO: How to differentiate between errors that should be logged and errors that shouldn't be logged?
-                MessageBox.Show(ex.Message, ex.Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (ex.Handled)
+                {
+                    //Don't throw/log errors we can't do anything about
+                    MessageBox.Show(ex.Message, ex.Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+                else
+                {
+                    throw;
+                }
             }
             catch (Exception)
             {
@@ -425,6 +446,20 @@ OFFSET {3} ";
                 //Hide context menu on minimize to avoid a glitch where
                 //the context menu won't go away until you click on it.
                 resultsGridView.CloseContextMenu();
+            }
+        }
+
+        internal class QueryExecutedEventArgs : EventArgs
+        {
+            public TimeSpan QueryDuration { get; }
+            public TimeSpan ConversionDuration { get; }
+            public TimeSpan RenderDuration { get; }
+
+            public QueryExecutedEventArgs(TimeSpan queryDuration, TimeSpan resultConversionDuration, TimeSpan renderDuration)
+            {
+                QueryDuration = queryDuration;
+                ConversionDuration = resultConversionDuration;
+                RenderDuration = renderDuration;
             }
         }
     }

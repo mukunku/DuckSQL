@@ -1,3 +1,4 @@
+using DuckSQL.Analytics;
 using DuckSQL.Controls;
 using DuckSQL.Exceptions;
 using DuckSQL.Helpers;
@@ -37,6 +38,7 @@ namespace DuckSQL
         {
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
+                MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.FileOpen);
                 await OpenNewFileOrFolderAsync(openFileDialog.FileName);
             }
         }
@@ -45,6 +47,7 @@ namespace DuckSQL
         {
             if (openFolderDialog.ShowDialog() == DialogResult.OK)
             {
+                MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.FolderOpen);
                 await OpenNewFileOrFolderAsync(openFolderDialog.SelectedPath);
             }
         }
@@ -54,8 +57,15 @@ namespace DuckSQL
             await ExportResultsAsync(FileType.CSV);
         }
 
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e)
+        private async void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            var exitEvent = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit };
+            
+            var timeout = Task.Delay(200);
+            var eventTask = exitEvent.Record();
+
+            await Task.WhenAny(timeout, eventTask);
+
             Application.Exit();
         }
 
@@ -122,6 +132,7 @@ namespace DuckSQL
 
         private void userGuideToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.UserGuide);
             Process.Start(new ProcessStartInfo(Constants.WikiURL) { UseShellExecute = true });
         }
 
@@ -169,6 +180,7 @@ namespace DuckSQL
 
         private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.AboutBox);
             using var aboutBox = new AboutBox();
             aboutBox.ShowDialog();
         }
@@ -241,6 +253,11 @@ namespace DuckSQL
                     e.Handled = true;
                 }
             }
+            else if (e.Control && e.KeyCode == Keys.T)
+            {
+                CreateNewTabOrSwitchToExisting();
+                e.Handled = true;
+            }
         }
 
         //Source: https://stackoverflow.com/a/25648710/1458738
@@ -281,10 +298,13 @@ namespace DuckSQL
 
                     var stopWatch = Stopwatch.StartNew();
                     loadingIcon = this.ShowLoadingIcon(Resources.Strings.ExportingDataLabelText, dataTable.DefaultView.Count * dataTable.Columns.Count);
+                    
                     await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
                         loadingIcon, tabControl1.SelectedTab?.Text);
-
+                    
+                    stopWatch.Stop();
                     loadingIcon.Hide();
+
                     if (loadingIcon.CancellationToken.IsCancellationRequested)
                     {
                         CleanupFile(filePath);
@@ -293,7 +313,10 @@ namespace DuckSQL
                     else
                     {
                         long fileSizeInBytes = new FileInfo(filePath).Length;
-                        var fileSizeInMegaBytes = Math.Round((fileSizeInBytes / 1024.0) / 1024.0, 2);
+                        var fileSizeInMegaBytes = (float)Math.Round((fileSizeInBytes / 1024.0) / 1024.0, 2);
+
+                        FileExportEvent.FireAndForget(selectedFileType.Value, fileSizeInMegaBytes, dataTable.Rows.Count, dataTable.Columns.Count, stopWatch.ElapsedMilliseconds);
+
                         MessageBox.Show(this,
                             Resources.Strings.ExportSuccessfulMessageFormat.Format(fileSizeInMegaBytes),
                             Resources.Strings.ExportSuccessfulTitle,
@@ -602,9 +625,22 @@ namespace DuckSQL
                 jsonWriter.WriteEndArray();
             }, cancellationToken);
 
-        private void QueryExecutedEventHandler(object? sender, EventArgs args)
+        private void QueryExecutedEventHandler(object? sender, QueryEditorControl.QueryExecutedEventArgs args)
         {
             ToggleSaveResultsFileMenuItem();
+
+            var dataTable = tabControl1.SelectedTab?.Controls[0] is QueryEditorControl editor ? editor.GetDataSource() : null;
+            if (dataTable is null)
+                return;
+
+            ExecuteQueryEvent.FireAndForget(
+                null, //TODO: track Open File record count info if possible
+                dataTable.Rows.Count, 
+                dataTable.Columns.Count, 
+                (long)args.QueryDuration.TotalMilliseconds,
+                (long)args.ConversionDuration.TotalMilliseconds,
+                (long)args.RenderDuration.TotalMilliseconds
+                );
         }
 
         private void QueryExecutionStartedEventHandler(object? sender, EventArgs args)
