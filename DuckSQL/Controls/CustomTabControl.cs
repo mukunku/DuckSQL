@@ -5,6 +5,7 @@ namespace DuckSQL.Controls
     internal class CustomTabControl : TabControl
     {
         private int? _closeButtonHoveredTabIndex = null;
+        private Rectangle? _closeButtonHoveredTabRectangle = null;
         private bool _isMouseLeftButtonDown = false;
         private int _rightClickedTabIndex = -1;
         private static int _newQueryCount = 0;
@@ -77,6 +78,7 @@ namespace DuckSQL.Controls
                 if (closeButtonRectangle.Contains(e.Location))
                 {
                     hoveredTabIndex = i;
+                    _closeButtonHoveredTabRectangle = closeButtonRectangle;
                     break;
                 }
             }
@@ -84,7 +86,12 @@ namespace DuckSQL.Controls
             if (hoveredTabIndex != _closeButtonHoveredTabIndex)
             {
                 _closeButtonHoveredTabIndex = hoveredTabIndex;
-                Invalidate(); //Trigger redraw to show hover effect
+
+                //Trigger redraw to show hover effect, focusing on just the button area to reduce flickering
+                if (_closeButtonHoveredTabRectangle is not null)
+                    Invalidate(_closeButtonHoveredTabRectangle.Value);
+                else
+                    Invalidate(); 
             }
         }
 
