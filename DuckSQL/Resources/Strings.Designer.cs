@@ -160,6 +160,53 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Export has been cancelled.
+        /// </summary>
+        internal static string ExportCancelledMessage {
+            get {
+                return ResourceManager.GetString("ExportCancelledMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export Cancelled.
+        /// </summary>
+        internal static string ExportCancelledTitle {
+            get {
+                return ResourceManager.GetString("ExportCancelledTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exporting Data.
+        /// </summary>
+        internal static string ExportingDataLabelText {
+            get {
+                return ResourceManager.GetString("ExportingDataLabelText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Export successful!
+        ///
+        ///File size: {0} MB.
+        /// </summary>
+        internal static string ExportSuccessfulMessageFormat {
+            get {
+                return ResourceManager.GetString("ExportSuccessfulMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Success.
+        /// </summary>
+        internal static string ExportSuccessfulTitle {
+            get {
+                return ResourceManager.GetString("ExportSuccessfulTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Image saved to {0}.
         /// </summary>
         internal static string ImageSavedToDiskMessage {
@@ -250,6 +297,15 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to {0} records will be exported.
+        /// </summary>
+        internal static string RecordsToBeExportedTitleFormat {
+            get {
+                return ResourceManager.GetString("RecordsToBeExportedTitleFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Save image as {0}.
         /// </summary>
         internal static string SaveImageAsButtonText {
@@ -264,6 +320,26 @@ namespace DuckSQL.Resources {
         internal static string SaveImageToFileButtonTextFormat {
             get {
                 return ResourceManager.GetString("SaveImageToFileButtonTextFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Maximum {0} characters per cell are supported for {1} files.
+        ///
+        ///Would you like to switch to a {2} file instead?.
+        /// </summary>
+        internal static string SwitchFromXlsToXlsxMessageFormat {
+            get {
+                return ResourceManager.GetString("SwitchFromXlsToXlsxMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Data too large - Switch export type?.
+        /// </summary>
+        internal static string SwitchFromXlsToXlsxMessageTitle {
+            get {
+                return ResourceManager.GetString("SwitchFromXlsToXlsxMessageTitle", resourceCulture);
             }
         }
         

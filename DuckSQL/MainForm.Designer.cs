@@ -66,6 +66,7 @@ namespace DuckSQL
             tabControlImageList = new ImageList(components);
             openFileDialog = new OpenFileDialog();
             openFolderDialog = new FolderBrowserDialog();
+            exportFileDialog = new SaveFileDialog();
             queryEditorContextMenuStrip.SuspendLayout();
             menuStrip1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -238,6 +239,7 @@ namespace DuckSQL
             // 
             resources.ApplyResources(queryEditorControl1, "queryEditorControl1");
             queryEditorControl1.Name = "queryEditorControl1";
+            queryEditorControl1.QueryExecuted = null;
             queryEditorControl1.QueryText = "";
             queryEditorControl1.QueryTextChanged = null;
             // 
@@ -249,7 +251,9 @@ namespace DuckSQL
             tabControl1.ImageList = tabControlImageList;
             tabControl1.Multiline = true;
             tabControl1.Name = "tabControl1";
+            tabControl1.QueryExecuted = null;
             tabControl1.SelectedIndex = 0;
+            tabControl1.SelectedIndexChanged += tabControl1_SelectedIndexChanged;
             // 
             // tabControlImageList
             // 
@@ -322,5 +326,6 @@ namespace DuckSQL
         private OpenFileDialog openFileDialog;
         private FolderBrowserDialog openFolderDialog;
         private ImageList tabControlImageList;
+        private SaveFileDialog exportFileDialog;
     }
 }

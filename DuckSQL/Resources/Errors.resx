@@ -189,4 +189,18 @@
     <value>Error rendering results</value>
     <comment>Shown when values were read but couldnt be converted/shown in the DuckSQL grid</comment>
   </data>
+  <data name="TooManyColumnsErrorTitle" xml:space="preserve">
+    <value>Too many columns</value>
+    <comment>Shown when the user tries to export data to an xls file that has too many columns</comment>
+  </data>
+  <data name="TooManyColumnsErrorMessageFormat" xml:space="preserve">
+    <value>The .{0} file format supports a maximum of {1} columns.
+
+Please try another file format or reduce the amount of columns you are exporting. Your columns: {2}</value>
+    <comment>Shown when the user tries to export data to an xls file that has too many columns</comment>
+  </data>
+  <data name="ExportFailedErrorTitle" xml:space="preserve">
+    <value>File export failed</value>
+    <comment>Shown when an exception is encountered during a file export</comment>
+  </data>
 </root>

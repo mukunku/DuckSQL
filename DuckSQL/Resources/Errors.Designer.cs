@@ -133,6 +133,15 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to File export failed.
+        /// </summary>
+        internal static string ExportFailedErrorTitle {
+            get {
+                return ResourceManager.GetString("ExportFailedErrorTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Something went wrong.
         /// </summary>
         internal static string GenericErrorMessage {
@@ -219,6 +228,26 @@ namespace DuckSQL.Resources {
         internal static string RenderResultsErrorTitle {
             get {
                 return ResourceManager.GetString("RenderResultsErrorTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The .{0} file format supports a maximum of {1} columns.
+        ///
+        ///Please try another file format or reduce the amount of columns you are exporting. Your columns: {2}.
+        /// </summary>
+        internal static string TooManyColumnsErrorMessageFormat {
+            get {
+                return ResourceManager.GetString("TooManyColumnsErrorMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Too many columns.
+        /// </summary>
+        internal static string TooManyColumnsErrorTitle {
+            get {
+                return ResourceManager.GetString("TooManyColumnsErrorTitle", resourceCulture);
             }
         }
     }

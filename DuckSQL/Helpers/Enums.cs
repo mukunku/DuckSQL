@@ -6,4 +6,12 @@
         ISO8601 = 1,
         Custom = 2,
     }
+
+    internal enum FileType
+    {
+        CSV,
+        XLS,
+        XLSX,
+        JSON,
+    }
 }

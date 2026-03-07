@@ -180,13 +180,41 @@
   <data name="QueryZoomStatusTextFormat" xml:space="preserve">
     <value>Sorgu Zumu: {0}%</value>
   </data>
+  <data name="RecordsToBeExportedTitleFormat" xml:space="preserve">
+    <value>{0} kayıt kaydedilecektir</value>
+  </data>
   <data name="SaveImageAsButtonText" xml:space="preserve">
     <value>Resmi {0} olarak kaydet</value>
   </data>
   <data name="SaveImageToFileButtonTextFormat" xml:space="preserve">
     <value>{0} olarak Kaydet</value>
   </data>
+  <data name="ExportCancelledMessage" xml:space="preserve">
+    <value>Dosyaya kayıt işlemi iptal edilmiştir</value>
+  </data>
   <data name="TypeText" xml:space="preserve">
     <value>Format</value>
+  </data>
+  <data name="ExportCancelledTitle" xml:space="preserve">
+    <value>Aktarma İptal Edildi</value>
+  </data>
+  <data name="ExportSuccessfulMessageFormat" xml:space="preserve">
+    <value>Sonuçlar başarıyla kaydedildi!
+
+Dosya boyutu: {0} MB</value>
+  </data>
+  <data name="ExportSuccessfulTitle" xml:space="preserve">
+    <value>Aktarma başarılı</value>
+  </data>
+  <data name="ExportingDataLabelText" xml:space="preserve">
+    <value>Veri Aktarılıyor</value>
+  </data>
+  <data name="SwitchFromXlsToXlsxMessageFormat" xml:space="preserve">
+    <value>{1} dosyaları hücre başına maksimum {0} karakter desteklemektedir. 
+
+Onun yerine sonuçlari {2} dosyasına aktarmak ister misiniz?</value>
+  </data>
+  <data name="SwitchFromXlsToXlsxMessageTitle" xml:space="preserve">
+    <value>Fazla büyük veri - Dosya tipi değiştirilsin mi?</value>
   </data>
 </root>

@@ -16,6 +16,15 @@ namespace DuckSQL.Helpers
             return @default;
         }
 
+        public static string GetExtension(this FileType fileType) => fileType switch
+        {
+            FileType.CSV => ".csv",
+            FileType.JSON => ".json",
+            FileType.XLS => ".xls",
+            FileType.XLSX => ".xlsx",
+            _ => throw new ArgumentOutOfRangeException(nameof(fileType), fileType, null)
+        };
+
         public static bool ImplementsInterface<T>(this Type? type)
         {
             if (type is null)

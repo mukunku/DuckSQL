@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 namespace DuckSQL.Controls
 {
     internal class CustomTabControl : TabControl
@@ -13,6 +15,12 @@ namespace DuckSQL.Controls
         private ToolStripMenuItem closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
         private ToolStripMenuItem closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
         #endregion
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public EventHandler? QueryExecutionStarted { get; set; }
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public EventHandler? QueryExecuted { get; set; }
 
         public CustomTabControl()
         {
@@ -167,12 +175,16 @@ namespace DuckSQL.Controls
             );
         }
 
-        public int CreateNewTab(string? queryTextOrFilePath = null)
+        public int CreateNewTab(string? queryTextOrFilePath = null, bool skipTabCountIncrement = false)
         {
             var hasNoTabs = TabCount == 0;
 
             var tabName = Resources.Strings.NewQueryTabTitle;
-            if (++_newQueryCount > 1)
+
+            if (!skipTabCountIncrement)
+                _newQueryCount++;
+
+            if (_newQueryCount > 1)
             {
                 tabName += $" {_newQueryCount}";
             }
@@ -370,6 +382,15 @@ namespace DuckSQL.Controls
                     tab.Text = tab.Text.Trim() + " *";
                     Invalidate();
                 }
+            };
+            //Tell the main form a query was executed
+            queryEditor.QueryExecuted += (s, args) =>
+            {
+                QueryExecuted?.Invoke(s, args);
+            };
+            queryEditor.QueryExecutionStarted += (s, args) =>
+            {
+                QueryExecutionStarted?.Invoke(s, args);
             };
         }
 

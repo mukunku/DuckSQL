@@ -201,6 +201,10 @@
     <value>Query Zoom: {0}%</value>
     <comment>Text format used to display the current zoom level</comment>
   </data>
+  <data name="RecordsToBeExportedTitleFormat" xml:space="preserve">
+    <value>{0} records will be exported</value>
+    <comment>Title shown on the save file dialog when the user is exporting data</comment>
+  </data>
   <data name="SaveImageAsButtonText" xml:space="preserve">
     <value>Save image as {0}</value>
     <comment>Shown on the save image to file button in the quick peek form</comment>
@@ -209,8 +213,40 @@
     <value>Save as {0}</value>
     <comment>Text template for the button to save an image preview to disk</comment>
   </data>
+  <data name="ExportCancelledMessage" xml:space="preserve">
+    <value>Export has been cancelled</value>
+    <comment>Shown when the user cancels the export operation before it completes</comment>
+  </data>
   <data name="TypeText" xml:space="preserve">
     <value>Type</value>
     <comment>Shown in the title bar of quick peek windows for image previews like JPG, PNG, TIFF, etc...</comment>
+  </data>
+  <data name="ExportCancelledTitle" xml:space="preserve">
+    <value>Export Cancelled</value>
+    <comment>Shown when the user cancels the export operation before it completes</comment>
+  </data>
+  <data name="ExportSuccessfulMessageFormat" xml:space="preserve">
+    <value>Export successful!
+
+File size: {0} MB</value>
+    <comment>Shown after a successful file export</comment>
+  </data>
+  <data name="ExportSuccessfulTitle" xml:space="preserve">
+    <value>Success</value>
+    <comment>Shown after a successful file export</comment>
+  </data>
+  <data name="ExportingDataLabelText" xml:space="preserve">
+    <value>Exporting Data</value>
+    <comment>Text shown while data is being exported to a file</comment>
+  </data>
+  <data name="SwitchFromXlsToXlsxMessageFormat" xml:space="preserve">
+    <value>Maximum {0} characters per cell are supported for {1} files.
+
+Would you like to switch to a {2} file instead?</value>
+    <comment>Shown when the user tries to export data to an xls file with too many characters in a single cell. The text should prompt the user if they want to switch to xlsx instead which supports more data in a single cell</comment>
+  </data>
+  <data name="SwitchFromXlsToXlsxMessageTitle" xml:space="preserve">
+    <value>Data too large - Switch export type?</value>
+    <comment>Shown when the user tries to export data to an xls file with too many characters in a single cell. The text should prompt the user if they want to switch to xlsx instead which supports more data in a single cell</comment>
   </data>
 </root>

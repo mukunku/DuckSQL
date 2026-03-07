@@ -29,6 +29,7 @@
   <ItemGroup>
     <PackageReference Include="DuckDB.NET.Data.Full" Version="1.4.4" />
     <PackageReference Include="FCTB" Version="2.16.24" />
+    <PackageReference Include="MiniExcel" Version="2.0.0-preview.2" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="NAudio.WinForms" Version="2.2.1" />
   </ItemGroup>

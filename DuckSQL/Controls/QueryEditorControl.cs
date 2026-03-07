@@ -18,12 +18,17 @@ FROM {1}
 LIMIT {2}
 OFFSET {3} ";
 
-        private Pen _splitterColor = new Pen(Brushes.Silver, 2) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+        private Pen _splitterColor = new(Brushes.DarkGray, 2) { DashStyle = System.Drawing.Drawing2D.DashStyle.Solid };
         private static bool _wasByteArrayConversionErrorShown = false; //TODO: This should ideally be kept per tab/instance
         private CancellationTokenSource? _queryCancellationToken = null;
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? QueryTextChanged { get; set; }
+
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public EventHandler? QueryExecutionStarted { get; set; }
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public EventHandler? QueryExecuted { get; set; }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public string QueryText
@@ -51,7 +56,7 @@ OFFSET {3} ";
             dataFilePath ??= Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? string.Empty, "your-file.parquet");
 
             var queryFields = fields is not null ? string.Join(',', fields.Select(f => $"\"{f}\"")) : "*";
-            var fromClause = dataFilePath?.EndsWith(".parquet") == true ? $"'{dataFilePath}'" : $"read_parquet('{dataFilePath}')";
+            var fromClause = $"'{dataFilePath}'";
             var initialQuery = QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
 
             QueryText = initialQuery;
@@ -73,10 +78,14 @@ OFFSET {3} ";
             resultsGridView.Refresh();
         }
 
-        private static async Task<DataTable> ExecuteQueryAsync(string query, CancellationToken cancellationToken)
+        public DataTable GetDataSource() => this.resultsGridView.DataSource as DataTable ?? new DataTable();
+
+        private async Task<DataTable> ExecuteQueryAsync(string query, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(query))
                 throw new ArgumentNullException(query);
+
+            QueryExecutionStarted?.Invoke(this, EventArgs.Empty);
 
             var result = new DataTable();
             try
@@ -174,6 +183,8 @@ OFFSET {3} ";
 
                 result = await queryTask;
                 this.resultsGridView.DataSource = result;
+
+                QueryExecuted?.Invoke(this, EventArgs.Empty);
             }
             catch (QueryExecuteException ex)
             {
@@ -238,7 +249,7 @@ OFFSET {3} ";
             {
                 var rectangle = splitContainer.SplitterRectangle;
                 rectangle.Offset(0, 2);
-                e.Graphics.DrawLine(_splitterColor, rectangle.X, rectangle.Y, 
+                e.Graphics.DrawLine(_splitterColor, rectangle.X, rectangle.Y,
                     rectangle.X + rectangle.Width, rectangle.Y);
             }
         }

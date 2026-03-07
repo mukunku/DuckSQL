@@ -171,4 +171,15 @@
   <data name="RenderResultsErrorTitle" xml:space="preserve">
     <value>Sonuçlar gösterilirken bir hata oluştu</value>
   </data>
+  <data name="TooManyColumnsErrorTitle" xml:space="preserve">
+    <value>Çok fazla sütun</value>
+  </data>
+  <data name="TooManyColumnsErrorMessageFormat" xml:space="preserve">
+    <value>.{0} dosya formatı en fazla {1} sütun desteklemektedir.
+
+Lütfen farklı bir dosya tipi seçin veya kaydetmeye çalıştığınız alan sayısını azaltın. Alan sayınız: {2} </value>
+  </data>
+  <data name="ExportFailedErrorTitle" xml:space="preserve">
+    <value>Dosyaya aktarım başarısız oldu</value>
+  </data>
 </root>

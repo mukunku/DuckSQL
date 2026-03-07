@@ -77,13 +77,13 @@ namespace DuckSQL.Helpers
             ApproximateStringLengthSoFar += json.Length;
         }
 
-        private void WriteStartArray()
+        public void WriteStartArray()
         {
             _writer.WriteStartArray();
             ApproximateStringLengthSoFar += 1; // '['
         }
 
-        private void WriteEndArray()
+        public void WriteEndArray()
         {
             _writer.WriteEndArray();
             ApproximateStringLengthSoFar += 1; // ']'

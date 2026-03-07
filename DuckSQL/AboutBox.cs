@@ -6,8 +6,6 @@ namespace DuckSQL
 {
     public partial class AboutBox : Form
     {
-        private bool isLoading = false;
-
         static AboutBox()
         {
         }
