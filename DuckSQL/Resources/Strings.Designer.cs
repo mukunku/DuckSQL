@@ -160,6 +160,24 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Are you sure you want to create {0} new tabs?.
+        /// </summary>
+        internal static string DragDropTooManyFilesWarningMessageFormat {
+            get {
+                return ResourceManager.GetString("DragDropTooManyFilesWarningMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Opening {0} files.
+        /// </summary>
+        internal static string DragDropTooManyFilesWarningTitleFormat {
+            get {
+                return ResourceManager.GetString("DragDropTooManyFilesWarningTitleFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Export has been cancelled.
         /// </summary>
         internal static string ExportCancelledMessage {

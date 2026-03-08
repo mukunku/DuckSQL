@@ -217,4 +217,10 @@ Onun yerine sonuçlari {2} dosyasına aktarmak ister misiniz?</value>
   <data name="SwitchFromXlsToXlsxMessageTitle" xml:space="preserve">
     <value>Fazla büyük veri - Dosya tipi değiştirilsin mi?</value>
   </data>
+  <data name="DragDropTooManyFilesWarningMessageFormat" xml:space="preserve">
+    <value>{0} yeni sekme yaratmak istediğinden emin misin?</value>
+  </data>
+  <data name="DragDropTooManyFilesWarningTitleFormat" xml:space="preserve">
+    <value>{0} dosya açılacak</value>
+  </data>
 </root>

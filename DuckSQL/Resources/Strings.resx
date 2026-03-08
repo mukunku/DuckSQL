@@ -249,4 +249,12 @@ Would you like to switch to a {2} file instead?</value>
     <value>Data too large - Switch export type?</value>
     <comment>Shown when the user tries to export data to an xls file with too many characters in a single cell. The text should prompt the user if they want to switch to xlsx instead which supports more data in a single cell</comment>
   </data>
+  <data name="DragDropTooManyFilesWarningMessageFormat" xml:space="preserve">
+    <value>Are you sure you want to create {0} new tabs?</value>
+    <comment>Warning shown when a user drags and drops too many files into the app. It should ask the user to confirm they want to open that many files.</comment>
+  </data>
+  <data name="DragDropTooManyFilesWarningTitleFormat" xml:space="preserve">
+    <value>Opening {0} files</value>
+    <comment>Warning shown when a user drags and drops too many files into the app. It should ask the user to confirm they want to open that many files.</comment>
+  </data>
 </root>

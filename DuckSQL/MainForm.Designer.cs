@@ -246,6 +246,7 @@ namespace DuckSQL
             // 
             // tabControl1
             // 
+            tabControl1.AllowDrop = true;
             tabControl1.Controls.Add(tabPage1);
             resources.ApplyResources(tabControl1, "tabControl1");
             tabControl1.DrawMode = TabDrawMode.OwnerDrawFixed;
@@ -275,6 +276,7 @@ namespace DuckSQL
             // 
             // MainForm
             // 
+            AllowDrop = true;
             resources.ApplyResources(this, "$this");
             AutoScaleMode = AutoScaleMode.Font;
             Controls.Add(tabControl1);
@@ -286,8 +288,8 @@ namespace DuckSQL
             Load += MainForm_Load;
             DragDrop += MainForm_DragDrop;
             DragEnter += MainForm_DragEnter;
-            MouseDoubleClick += MainForm_MouseDoubleClick;
             KeyDown += MainForm_KeyDown;
+            MouseDoubleClick += MainForm_MouseDoubleClick;
             queryEditorContextMenuStrip.ResumeLayout(false);
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();

@@ -2,6 +2,7 @@ using DuckSQL.Analytics;
 using DuckSQL.Controls;
 using DuckSQL.Exceptions;
 using DuckSQL.Helpers;
+using DuckSQL.Resources;
 using MiniExcelLibs;
 using System.Data;
 using System.Diagnostics;
@@ -24,6 +25,7 @@ namespace DuckSQL
             tabControl1.CreateNewTab();
             tabControl1.QueryExecuted += QueryExecutedEventHandler;
             tabControl1.QueryExecutionStarted += QueryExecutionStartedEventHandler;
+            tabControl1.DragDrop += MainForm_DragDrop;
 
             this.RefreshDateFormatMenuItemSelection();
             shareUsageDataToolStripMenuItem.Checked = AppSettings.AnalyticsDataGatheringConsent;
@@ -60,7 +62,7 @@ namespace DuckSQL
         private async void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
             var exitEvent = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit };
-            
+
             var timeout = Task.Delay(200);
             var eventTask = exitEvent.Record();
 
@@ -178,27 +180,42 @@ namespace DuckSQL
             UtilityMethods.RestartApplication();
         }
 
-        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
+        private void aboutToolStripMenuItem_Click(object _, EventArgs e)
         {
             MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.AboutBox);
             using var aboutBox = new AboutBox();
             aboutBox.ShowDialog();
         }
 
-        private async void MainForm_DragDrop(object sender, DragEventArgs e)
+        private async void MainForm_DragDrop(object? _, DragEventArgs e)
         {
             var files = e.Data?.GetData(DataFormats.FileDrop) as string[];
             if (files?.Length > 0)
             {
-                await OpenNewFileOrFolderAsync(files[0]);
+                if (files.Length > 10 && MessageBox.Show(
+                    Strings.DragDropTooManyFilesWarningMessageFormat.Format(files.Length), Strings.DragDropTooManyFilesWarningTitleFormat.Format(files.Length),
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+                {
+                    return;
+                }
+
+                await OpenNewFileOrFolderAsync(files);
             }
         }
 
-        private async Task OpenNewFileOrFolderAsync(string fileOrFolderPath)
+        private async Task OpenNewFileOrFolderAsync(params string[] fileOrFolderPaths)
         {
+            if (fileOrFolderPaths is null || fileOrFolderPaths.Length == 0)
+                return;
+
             //Check if the last tab is an empty one so we can reuse its name
             var skipTabCountIncrement = tabControl1.TabCount > 0 && tabControl1.IsEmptyQueryEditor(tabControl1.TabCount - 1);
-            var tabIndex = tabControl1.CreateNewTab(fileOrFolderPath, skipTabCountIncrement);
+            int tabIndex = -1;
+            foreach (var fileOrFolderPath in fileOrFolderPaths)
+            {
+                tabIndex = tabControl1.CreateNewTab(fileOrFolderPath, skipTabCountIncrement);
+                skipTabCountIncrement = false;
+            }
             tabControl1.SelectedIndex = tabIndex;
 
             if (tabControl1.TabCount > 1 && tabControl1.IsEmptyQueryEditor(tabControl1.TabCount - 2))
@@ -298,10 +315,10 @@ namespace DuckSQL
 
                     var stopWatch = Stopwatch.StartNew();
                     loadingIcon = this.ShowLoadingIcon(Resources.Strings.ExportingDataLabelText, dataTable.DefaultView.Count * dataTable.Columns.Count);
-                    
+
                     await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
                         loadingIcon, tabControl1.SelectedTab?.Text);
-                    
+
                     stopWatch.Stop();
                     loadingIcon.Hide();
 
@@ -635,8 +652,8 @@ namespace DuckSQL
 
             ExecuteQueryEvent.FireAndForget(
                 null, //TODO: track Open File record count info if possible
-                dataTable.Rows.Count, 
-                dataTable.Columns.Count, 
+                dataTable.Rows.Count,
+                dataTable.Columns.Count,
                 (long)args.QueryDuration.TotalMilliseconds,
                 (long)args.ConversionDuration.TotalMilliseconds,
                 (long)args.RenderDuration.TotalMilliseconds
@@ -667,7 +684,7 @@ namespace DuckSQL
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            
+
             if (_debugRectangle.HasValue)
             {
                 using var redBrush = new SolidBrush(Color.FromArgb(128, Color.Red));

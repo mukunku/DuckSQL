@@ -48,6 +48,20 @@ OFFSET {3} ";
             resultsGridView.CopyToClipboardIcon = Properties.Resources.copy_clipboard_icon.ToBitmap();
             resultsGridView.ColumnNameEscapeFormat = "\"{0}\"";
             resultsGridView.DateValueEscapeFormat = "'{0}'";
+            resultsGridView.DragDrop += (s, args) =>
+            {
+                OnDragDrop(args);
+            };
+            queryRichTextBox.AllowDrop = true;
+            queryRichTextBox.DragEnter += (s, args) =>
+            {
+                OnDragEnter(args);
+            };
+            queryRichTextBox.DragDrop += (s, args) =>
+            {
+                OnDragDrop(args);
+            };
+            AllowDrop = true;
         }
 
         public QueryEditorControl(IEnumerable<string>? fields = null, string? dataFilePath = null, int offset = 0, int limit = 1000) : this()
@@ -447,6 +461,14 @@ OFFSET {3} ";
                 //the context menu won't go away until you click on it.
                 resultsGridView.CloseContextMenu();
             }
+        }
+
+        protected override void OnDragEnter(DragEventArgs e)
+        {
+            base.OnDragEnter(e);
+
+            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
+                e.Effect = DragDropEffects.Copy;
         }
 
         internal class QueryExecutedEventArgs : EventArgs

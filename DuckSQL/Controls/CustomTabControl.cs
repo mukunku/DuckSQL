@@ -125,6 +125,14 @@ namespace DuckSQL.Controls
             _dragStartTabIndex = CursorHoverTabIndex(e.Location);
         }
 
+        protected override void OnDragEnter(DragEventArgs e)
+        {
+            base.OnDragEnter(e);
+
+            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
+                e.Effect = DragDropEffects.Copy;
+        }
+
         protected override void OnDragOver(DragEventArgs e)
         {
             base.OnDragOver(e);
@@ -447,6 +455,10 @@ namespace DuckSQL.Controls
             queryEditor.QueryExecutionStarted += (s, args) =>
             {
                 QueryExecutionStarted?.Invoke(s, args);
+            };
+            queryEditor.DragDrop += (s, args) =>
+            {
+                OnDragDrop(args);
             };
         }
 
