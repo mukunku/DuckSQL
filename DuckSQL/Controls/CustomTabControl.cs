@@ -17,6 +17,11 @@ namespace DuckSQL.Controls
         private ToolStripMenuItem closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
         #endregion
 
+        #region Drag & Drop
+        private int? _dragStartTabIndex = null;
+        private int? _dragStopTabIndex = null;
+        #endregion
+
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? QueryExecutionStarted { get; set; }
 
@@ -30,6 +35,7 @@ namespace DuckSQL.Controls
             closeTabToolStripMenuItem.Click += closeTabToolStripMenuItem_Click;
             closeOtherTabsToolStripMenuItem.Click += closeOtherTabsToolStripMenuItem_Click;
             closeAllTabsToolStripMenuItem.Click += closeAllTabsToolStripMenuItem_Click;
+            AllowDrop = true;
         }
 
         protected override void OnDrawItem(DrawItemEventArgs e)
@@ -71,27 +77,32 @@ namespace DuckSQL.Controls
         {
             base.OnMouseMove(e);
 
-            int? hoveredTabIndex = null;
-            for (var i = 0; i < TabCount; i++)
+            var tabIndex = CursorHoverTabIndex(e.Location);
+            int? closeButtonHoveredTabIndex = null;
+            if (tabIndex is not null)
             {
-                var closeButtonRectangle = GetTabCloseButtonRectangle(i);
+                var closeButtonRectangle = GetTabCloseButtonRectangle(tabIndex.Value);
                 if (closeButtonRectangle.Contains(e.Location))
                 {
-                    hoveredTabIndex = i;
+                    closeButtonHoveredTabIndex = tabIndex;
                     _closeButtonHoveredTabRectangle = closeButtonRectangle;
-                    break;
                 }
             }
 
-            if (hoveredTabIndex != _closeButtonHoveredTabIndex)
+            if (closeButtonHoveredTabIndex != _closeButtonHoveredTabIndex)
             {
-                _closeButtonHoveredTabIndex = hoveredTabIndex;
+                _closeButtonHoveredTabIndex = closeButtonHoveredTabIndex;
 
                 //Trigger redraw to show hover effect, focusing on just the button area to reduce flickering
                 if (_closeButtonHoveredTabRectangle is not null)
                     Invalidate(_closeButtonHoveredTabRectangle.Value);
                 else
-                    Invalidate(); 
+                    Invalidate();
+            }
+
+            if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null)
+            {
+                DoDragDrop(TabPages[_dragStartTabIndex.Value], DragDropEffects.Move);
             }
         }
 
@@ -104,8 +115,44 @@ namespace DuckSQL.Controls
             var tabIndex = CursorHoverCloseTabButtonIndex(e.Location);
             if (tabIndex.HasValue)
             {
-                Invalidate(); //Trigger redraw to show pressed effect
+                //Trigger redraw to show pressed effect
+                if (_closeButtonHoveredTabRectangle is not null)
+                    Invalidate(_closeButtonHoveredTabRectangle.Value);
+                else
+                    Invalidate();
             }
+
+            _dragStartTabIndex = CursorHoverTabIndex(e.Location);
+        }
+
+        protected override void OnDragOver(DragEventArgs e)
+        {
+            base.OnDragOver(e);
+            
+            _dragStopTabIndex = null;
+
+            if (_dragStartTabIndex is null)
+                return;
+
+            var hoveredTabIndex = CursorHoverTabIndex(PointToClient(new Point(e.X, e.Y)));
+            if (hoveredTabIndex is null || hoveredTabIndex == _dragStartTabIndex)
+            {
+                e.Effect = DragDropEffects.None;
+                return;
+            }
+
+            e.Effect = DragDropEffects.Move;
+            _dragStopTabIndex = hoveredTabIndex;
+        }
+
+        protected override void OnDragDrop(DragEventArgs e)
+        {
+            base.OnDragDrop(e);
+
+            if (_dragStartTabIndex is null || _dragStopTabIndex is null)
+                return;
+
+            MoveTab(_dragStartTabIndex.Value, _dragStopTabIndex.Value);
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
@@ -139,6 +186,8 @@ namespace DuckSQL.Controls
                     CloseTab(tabIndex.Value);
                 }
             }
+
+            _dragStartTabIndex = null;
         }
 
         private int? CursorHoverTabIndex(Point cursorLocation)
@@ -315,7 +364,7 @@ namespace DuckSQL.Controls
 
                 TabPages.RemoveAt(tabIndex);
             }
-            
+
             if (TabCount == 0)
             {
                 CreateNewTab();
@@ -424,6 +473,32 @@ namespace DuckSQL.Controls
 
             var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
             CloseTabs(tabIndexes);
+        }
+
+        private void MoveTab(int tabToBeMovedIndex, int targetTabIndex)
+        {
+            var tabToBeMoved = TabPages[tabToBeMovedIndex];
+            if (targetTabIndex > tabToBeMovedIndex)
+            {
+                for (var i = tabToBeMovedIndex; i < targetTabIndex; i++)
+                {
+                    TabPages[i] = TabPages[i + 1];
+                }
+            }
+            else if (targetTabIndex < tabToBeMovedIndex)
+            {
+                for (var i = tabToBeMovedIndex; i > targetTabIndex; i--)
+                {
+                    TabPages[i] = TabPages[i - 1];
+                }                
+            }
+            else
+            {
+                return;
+            }
+            TabPages[targetTabIndex] = tabToBeMoved;
+            SelectedTab = tabToBeMoved;
+            Refresh();
         }
     }
 }
