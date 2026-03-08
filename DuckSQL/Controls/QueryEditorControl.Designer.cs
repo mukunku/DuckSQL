@@ -250,7 +250,7 @@ namespace DuckSQL.Controls
             // toolStripStatusLabel3
             // 
             toolStripStatusLabel3.Name = "toolStripStatusLabel3";
-            toolStripStatusLabel3.Size = new Size(458, 17);
+            toolStripStatusLabel3.Size = new Size(415, 17);
             toolStripStatusLabel3.Spring = true;
             // 
             // zoomPercentageDropDown
@@ -308,8 +308,8 @@ namespace DuckSQL.Controls
             // queryExecutionStatusLabel
             // 
             queryExecutionStatusLabel.Name = "queryExecutionStatusLabel";
-            queryExecutionStatusLabel.Size = new Size(55, 17);
-            queryExecutionStatusLabel.Text = "Running:";
+            queryExecutionStatusLabel.Size = new Size(67, 17);
+            queryExecutionStatusLabel.Text = "Finished in:";
             // 
             // timeElapsedLabel
             // 
