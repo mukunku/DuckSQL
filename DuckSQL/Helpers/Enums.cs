@@ -13,5 +13,6 @@
         XLS,
         XLSX,
         JSON,
+        PARQUET,
     }
 }

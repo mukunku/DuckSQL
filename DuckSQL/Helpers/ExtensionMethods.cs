@@ -22,6 +22,7 @@ namespace DuckSQL.Helpers
             FileType.JSON => ".json",
             FileType.XLS => ".xls",
             FileType.XLSX => ".xlsx",
+            FileType.PARQUET => ".parquet",
             _ => throw new ArgumentOutOfRangeException(nameof(fileType), fileType, null)
         };
 

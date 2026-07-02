@@ -165,6 +165,8 @@ namespace DuckSQL.Helpers
                 return FileType.CSV;
             else if (extension == ".json")
                 return FileType.JSON;
+            else if (extension == ".parquet")
+                return FileType.PARQUET;
             else
                 return null;
         }

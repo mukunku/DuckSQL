@@ -152,14 +152,6 @@ namespace DuckSQL.Controls
             _dragStartTabIndex = CursorHoverTabIndex(e.Location);
         }
 
-        protected override void OnDragEnter(DragEventArgs e)
-        {
-            base.OnDragEnter(e);
-
-            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
-                e.Effect = DragDropEffects.Copy;
-        }
-
         protected override void OnDragOver(DragEventArgs e)
         {
             base.OnDragOver(e);
@@ -285,7 +277,7 @@ namespace DuckSQL.Controls
             try
             {
                 //Not sure if try..catch is required here, adding it for safety.
-                if (File.Exists(queryTextOrFilePath))
+                if (File.Exists(queryTextOrFilePath) && Path.GetExtension(queryTextOrFilePath)?.Equals(".sql") == true)
                 {
                     tabName = Path.GetFileName(queryTextOrFilePath);
                     isFileBackedTab = true;

@@ -237,12 +237,6 @@ namespace DuckSQL
             }
         }
 
-        private void MainForm_DragEnter(object sender, DragEventArgs e)
-        {
-            if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
-                e.Effect = DragDropEffects.Copy;
-        }
-
         private void MainForm_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Control && e.KeyCode == Keys.W)

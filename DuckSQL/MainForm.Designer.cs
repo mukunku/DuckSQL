@@ -314,8 +314,6 @@ namespace DuckSQL
             MainMenuStrip = menuStrip1;
             Name = "MainForm";
             Load += MainForm_Load;
-            DragDrop += MainForm_DragDrop;
-            DragEnter += MainForm_DragEnter;
             KeyDown += MainForm_KeyDown;
             MouseDoubleClick += MainForm_MouseDoubleClick;
             queryEditorContextMenuStrip.ResumeLayout(false);

@@ -455,7 +455,35 @@ OFFSET {3} ";
             base.OnDragEnter(e);
 
             if (e.Data?.GetDataPresent(DataFormats.FileDrop) == true)
-                e.Effect = DragDropEffects.Copy;
+            {
+                var files = e.Data?.GetData(DataFormats.FileDrop) as string[] ?? Enumerable.Empty<string>();
+                var supportedFiles = files.Select(Path.GetFileName).Where(IsSupportedFileType);
+                if (supportedFiles.Count() > 0)
+                    e.Effect = DragDropEffects.Copy;
+                else
+                    e.Effect = DragDropEffects.None;
+            }
+        }
+
+        private static bool IsSupportedFileType(string? fileName)
+        {
+            if (fileName is null)
+                return false;
+
+            var extension = Path.GetExtension(fileName);
+
+            if (extension.Equals(".sql"))
+                return true;
+
+            foreach (var fileType in Enum.GetValues<FileType>())
+            {
+                if (fileType.GetExtension().Equals(extension))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal class QueryExecutedEventArgs : EventArgs
