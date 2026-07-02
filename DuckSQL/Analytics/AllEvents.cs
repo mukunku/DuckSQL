@@ -58,10 +58,12 @@ namespace DuckSQL.Analytics
             None = 0,
             FileOpen,
             FolderOpen,
+            QueryOpen,
+            QuerySave,
             Exit,
             AboutBox,
             UserGuide,
-            DragDrop, //TODO
+            DragDrop,
         }
     }
 

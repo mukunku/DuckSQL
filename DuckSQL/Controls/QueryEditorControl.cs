@@ -64,20 +64,20 @@ OFFSET {3} ";
             AllowDrop = true;
         }
 
-        public QueryEditorControl(IEnumerable<string>? fields = null, string? dataFilePath = null, int offset = 0, int limit = 1000) : this()
+        public QueryEditorControl(string filePath, int offset = 0, int limit = 1000) : this()
         {
-            var filePathSpecified = dataFilePath is not null;
-            dataFilePath ??= Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? string.Empty, "your-file.parquet");
-
-            var queryFields = fields is not null ? string.Join(',', fields.Select(f => $"\"{f}\"")) : "*";
-            var fromClause = $"'{dataFilePath}'";
-            var initialQuery = QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
-
-            QueryText = initialQuery;
-            if (!filePathSpecified)
+            if (Path.GetExtension(filePath).Equals(".sql"))
             {
-                executeQueryButton.Enabled = false;
+                var fileContent = File.ReadAllText(filePath);
+                QueryText = fileContent;
             }
+            else
+            {
+                var queryFields = "*";
+                var fromClause = $"'{filePath}'";
+                QueryText = QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
+            }
+            executeQueryButton.Enabled = true;
         }
 
         private void QueryEditorControl_Load(object sender, EventArgs e)

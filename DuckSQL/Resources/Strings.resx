@@ -257,4 +257,8 @@ Would you like to switch to a {2} file instead?</value>
     <value>Opening {0} files</value>
     <comment>Warning shown when a user drags and drops too many files into the app. It should ask the user to confirm they want to open that many files.</comment>
   </data>
+  <data name="OpenQueryLocationText" xml:space="preserve">
+    <value>Open query location</value>
+    <comment>Text shown in the right click context menu on tabs that are backed by a sql file</comment>
+  </data>
 </root>

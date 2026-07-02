@@ -270,6 +270,15 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Open query location.
+        /// </summary>
+        internal static string OpenQueryLocationText {
+            get {
+                return ResourceManager.GetString("OpenQueryLocationText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Privacy policy.
         /// </summary>
         internal static string PrivacyPolicyLabelText {

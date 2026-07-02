@@ -26,6 +26,7 @@ namespace DuckSQL
             tabControl1.QueryExecuted += QueryExecutedEventHandler;
             tabControl1.QueryExecutionStarted += QueryExecutionStartedEventHandler;
             tabControl1.DragDrop += MainForm_DragDrop;
+            tabControl1.TabDirtyStateChanged += TabControl1_TabDirtyStateChanged;
 
             this.RefreshDateFormatMenuItemSelection();
             shareUsageDataToolStripMenuItem.Checked = AppSettings.AnalyticsDataGatheringConsent;
@@ -61,6 +62,10 @@ namespace DuckSQL
 
         private async void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            //Close all the tabs so we can confirm unsaved changes
+            if (tabControl1.TabPages.Count > 0)
+                tabControl1.CloseAllTabs();
+
             var exitEvent = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit };
 
             var timeout = Task.Delay(200);
@@ -192,13 +197,15 @@ namespace DuckSQL
             var files = e.Data?.GetData(DataFormats.FileDrop) as string[];
             if (files?.Length > 0)
             {
-                if (files.Length > 10 && MessageBox.Show(
+                const int WARNING_DRAG_DROP_FILE_COUNT = 10;
+                if (files.Length > WARNING_DRAG_DROP_FILE_COUNT && MessageBox.Show(
                     Strings.DragDropTooManyFilesWarningMessageFormat.Format(files.Length), Strings.DragDropTooManyFilesWarningTitleFormat.Format(files.Length),
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
                 {
                     return;
                 }
 
+                MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.DragDrop);
                 await OpenNewFileOrFolderAsync(files);
             }
         }
@@ -224,7 +231,10 @@ namespace DuckSQL
                 tabControl1.TabPages.RemoveAt(tabControl1.TabCount - 2);
             }
 
-            tabControl1.SelectedTab?.Text = tabControl1.SelectedTab?.Text.Trim() + " *"; //mark the tab as dirty
+            if (tabControl1.GetSelectedTab().HasNewQueryTitle)
+            {
+                tabControl1.SelectedTab?.Text = tabControl1.SelectedTab?.Text.Trim() + " *"; //mark the new query tab as dirty
+            }
         }
 
         private void MainForm_DragEnter(object sender, DragEventArgs e)
@@ -674,22 +684,15 @@ namespace DuckSQL
                 && editor.GetDataSource().Columns.Count > 0;
         }
 
+        private void ToggleSaveQueryFileMenuItem(bool? enable = null)
+        {
+            saveQueryToolStripMenuItem.Enabled = tabControl1.SelectedTab?.Text.Trim().EndsWith('*') == true;
+        }
+
         private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
         {
             ToggleSaveResultsFileMenuItem();
-        }
-
-        private Rectangle? _debugRectangle;
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-
-            if (_debugRectangle.HasValue)
-            {
-                using var redBrush = new SolidBrush(Color.FromArgb(128, Color.Red));
-                e.Graphics.FillRectangle(redBrush, _debugRectangle.Value);
-            }
+            ToggleSaveQueryFileMenuItem();
         }
 
         private void MainForm_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -710,10 +713,6 @@ namespace DuckSQL
                 return; //case where we run out of empty space
 
             var emptyHotbarAreaRectangle = new Rectangle(x, y, width, height);
-
-            _debugRectangle = emptyHotbarAreaRectangle;
-            this.Invalidate();
-
             var wasEmptyHotbarDoubleClicked = emptyHotbarAreaRectangle.Contains(e.Location);
             if (wasEmptyHotbarDoubleClicked)
             {
@@ -732,6 +731,55 @@ namespace DuckSQL
 
             tabIndex = tabControl1.CreateNewTab();
             tabControl1.SelectedIndex = tabIndex.Value;
+        }
+
+        private async void openQueryToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (openQueryDialog.ShowDialog() == DialogResult.OK)
+            {
+                foreach(var tab in tabControl1.TabPages)
+                {
+                    if (tab is TabPage tabPage && tabPage.Tag is string tag && tag == openQueryDialog.FileName)
+                    {
+                        tabControl1.SelectedTab = tabPage;
+                        return;
+                    }
+                }
+
+                MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.QueryOpen);
+                await OpenNewFileOrFolderAsync(openQueryDialog.FileName);
+            }
+        }
+
+        private void saveQueryToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            var selectedTab = tabControl1.SelectedTab as CustomTabPage;
+            if (selectedTab is null)
+                return;
+
+            if (selectedTab.IsDirty)
+            {
+                var trimmedTabTitle = tabControl1.SelectedTab!.Text.Trim(' ', '*');
+                saveQueryDialog.FileName = trimmedTabTitle.EndsWith(".sql") ? trimmedTabTitle : (trimmedTabTitle + ".sql");
+
+                var shouldSave = selectedTab.IsFileBackedTab || saveQueryDialog.ShowDialog() == DialogResult.OK;
+                if (shouldSave)
+                {
+                    var filePath = selectedTab.IsFileBackedTab ? (string)tabControl1.SelectedTab.Tag! : saveQueryDialog.FileName;
+
+                    MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.QuerySave);
+                    File.WriteAllText(filePath, tabControl1.GetSelectedTab().GetQueryEditor().QueryText);
+                    tabControl1.SelectedTab.Text = Path.GetFileName(filePath);
+                    tabControl1.SelectedTab.Tag = filePath;
+                    Invalidate();
+                    ToggleSaveQueryFileMenuItem();
+                }
+            }
+        }
+
+        private void TabControl1_TabDirtyStateChanged(object? sender, EventArgs e)
+        {
+            ToggleSaveQueryFileMenuItem();
         }
     }
 }

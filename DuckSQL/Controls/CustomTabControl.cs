@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 
 namespace DuckSQL.Controls
 {
@@ -11,10 +12,12 @@ namespace DuckSQL.Controls
         private static int _newQueryCount = 0;
 
         #region Context Menu
-        private ContextMenuStrip _closeTabContextMenuStrip = new();
-        private ToolStripMenuItem closeTabToolStripMenuItem = new() { Text = Resources.Strings.CloseTabText };
-        private ToolStripMenuItem closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
-        private ToolStripMenuItem closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
+        private ContextMenuStrip _rightClickTabContextMenuStrip = new();
+        private ToolStripMenuItem _closeTabToolStripMenuItem = new() { Text = Resources.Strings.CloseTabText };
+        private ToolStripMenuItem _closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
+        private ToolStripMenuItem _closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
+        private ToolStripSeparator firstToolStripSeparator = new();
+        private ToolStripMenuItem _openQueryLocationToolStripMenuItem = new() { Text = Resources.Strings.OpenQueryLocationText };
         #endregion
 
         #region Drag & Drop
@@ -28,14 +31,21 @@ namespace DuckSQL.Controls
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler<QueryEditorControl.QueryExecutedEventArgs>? QueryExecuted { get; set; }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
+        public EventHandler? TabDirtyStateChanged { get; set; }
+
         public CustomTabControl()
         {
             DrawMode = TabDrawMode.OwnerDrawFixed;
-            _closeTabContextMenuStrip.Items.AddRange([closeTabToolStripMenuItem, closeOtherTabsToolStripMenuItem, closeAllTabsToolStripMenuItem]);
-            closeTabToolStripMenuItem.Click += closeTabToolStripMenuItem_Click;
-            closeOtherTabsToolStripMenuItem.Click += closeOtherTabsToolStripMenuItem_Click;
-            closeAllTabsToolStripMenuItem.Click += closeAllTabsToolStripMenuItem_Click;
+            _rightClickTabContextMenuStrip.Items.AddRange(
+                [_closeTabToolStripMenuItem, _closeOtherTabsToolStripMenuItem, _closeAllTabsToolStripMenuItem,
+                firstToolStripSeparator, _openQueryLocationToolStripMenuItem]);
+            _closeTabToolStripMenuItem.Click += closeTabToolStripMenuItem_Click;
+            _closeOtherTabsToolStripMenuItem.Click += closeOtherTabsToolStripMenuItem_Click;
+            _closeAllTabsToolStripMenuItem.Click += closeAllTabsToolStripMenuItem_Click;
+            _openQueryLocationToolStripMenuItem.Click += openQueryLocationToolStripMenuItem_Click;
             AllowDrop = true;
+            ShowToolTips = true;
         }
 
         protected override void OnDrawItem(DrawItemEventArgs e)
@@ -77,6 +87,7 @@ namespace DuckSQL.Controls
         {
             base.OnMouseMove(e);
 
+            #region Close button drawing
             var tabIndex = CursorHoverTabIndex(e.Location);
             int? closeButtonHoveredTabIndex = null;
             if (tabIndex is not null)
@@ -99,11 +110,27 @@ namespace DuckSQL.Controls
                 else
                     Invalidate();
             }
+            #endregion
 
+            #region Drag/Drop reordering effect
             if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null)
             {
                 DoDragDrop(TabPages[_dragStartTabIndex.Value], DragDropEffects.Move);
             }
+            #endregion
+
+            #region File path tooltip
+            if (GetSelectedTab().IsFileBackedTab && tabIndex is not null && closeButtonHoveredTabIndex is null)
+            {
+                var hoveredTab = TabPages[tabIndex.Value];
+                var filePath = hoveredTab.Tag as string;
+
+                if (!string.IsNullOrWhiteSpace(filePath)) //just for extra safety
+                {
+                    hoveredTab.ToolTipText = filePath;
+                }
+            }
+            #endregion
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
@@ -183,7 +210,16 @@ namespace DuckSQL.Controls
                 if (tabIndex.HasValue)
                 {
                     _rightClickedTabIndex = tabIndex.Value;
-                    _closeTabContextMenuStrip.Show(this, e.Location);
+
+                    firstToolStripSeparator.Visible = false;
+                    _openQueryLocationToolStripMenuItem.Visible = false;
+                    if (TabPages[_rightClickedTabIndex] is CustomTabPage ctp && ctp.IsFileBackedTab)
+                    {
+                        firstToolStripSeparator.Visible = true;
+                        _openQueryLocationToolStripMenuItem.Visible = true;
+                    }
+
+                    _rightClickTabContextMenuStrip.Show(this, e.Location);
                 }
             }
             else if (e.Button == MouseButtons.Middle)
@@ -244,11 +280,24 @@ namespace DuckSQL.Controls
             var hasNoTabs = TabCount == 0;
 
             var tabName = Resources.Strings.NewQueryTabTitle;
+            var isFileBackedTab = false;
+
+            try
+            {
+                //Not sure if try..catch is required here, adding it for safety.
+                if (File.Exists(queryTextOrFilePath))
+                {
+                    tabName = Path.GetFileName(queryTextOrFilePath);
+                    isFileBackedTab = true;
+                    skipTabCountIncrement = true;
+                }
+            }
+            catch { /*swallow*/ }
 
             if (!skipTabCountIncrement)
                 _newQueryCount++;
 
-            if (_newQueryCount > 1)
+            if (_newQueryCount > 1 && !isFileBackedTab)
             {
                 tabName += $" {_newQueryCount}";
             }
@@ -265,6 +314,8 @@ namespace DuckSQL.Controls
 
             return TabCount - 1;
         }
+
+        public CustomTabPage GetSelectedTab() => (CustomTabPage)(SelectedTab ?? throw new InvalidOperationException("No selected tab found"));
 
         public int? FindEmptyQueryEditorTabIndex()
         {
@@ -288,43 +339,42 @@ namespace DuckSQL.Controls
             if (tabIndex >= TabCount)
                 throw new ArgumentOutOfRangeException(nameof(tabIndex));
 
-            var tab = TabPages[tabIndex];
+            var tab = (CustomTabPage)TabPages[tabIndex];
             if (tab.Controls.Count == 0 || tab.Controls[0] is not QueryEditorControl queryEditor)
             {
                 return true;
             }
 
-            var hasNewQueryTitle = tab.Text.StartsWith(Resources.Strings.NewQueryTabTitle);
             var hasQueryText = !string.IsNullOrWhiteSpace(queryEditor.QueryText);
             var hasFilePath = !string.IsNullOrWhiteSpace(queryEditor.CurrentFilePath);
 
-            return hasNewQueryTitle && !hasQueryText && !hasFilePath;
+            return tab.HasNewQueryTitle && !hasQueryText && !hasFilePath;
         }
 
         protected override void OnSelectedIndexChanged(EventArgs e)
         {
             base.OnSelectedIndexChanged(e);
 
-            if (SelectedTab is null)
+            if (SelectedTab is not CustomTabPage selectedTab)
                 return;
 
-            if (SelectedTab.Controls.Count == 0)
+            if (selectedTab.Controls.Count == 0)
             {
                 //Lazily initialize the query editor
                 QueryEditorControl queryEditor;
-                var tag = SelectedTab.Tag?.ToString();
-                if (!string.IsNullOrWhiteSpace(tag))
+                var filePathOrQueryText = selectedTab.Tag?.ToString();
+                if (!string.IsNullOrWhiteSpace(filePathOrQueryText))
                 {
-                    if (File.Exists(tag) || Directory.Exists(tag))
+                    if (File.Exists(filePathOrQueryText) || Directory.Exists(filePathOrQueryText))
                     {
-                        queryEditor = new QueryEditorControl(dataFilePath: tag) { Dock = DockStyle.Fill };
+                        queryEditor = new QueryEditorControl(filePathOrQueryText) { Dock = DockStyle.Fill };
                     }
                     else
                     {
                         queryEditor = new()
                         {
                             Dock = DockStyle.Fill,
-                            QueryText = tag
+                            QueryText = filePathOrQueryText
                         };
                     }
                 }
@@ -333,8 +383,8 @@ namespace DuckSQL.Controls
                     queryEditor = new QueryEditorControl { Dock = DockStyle.Fill };
                 }
 
-                AttachEventHandlers(queryEditor, SelectedTab);
-                SelectedTab.Controls.Add(queryEditor);
+                AttachEventHandlers(queryEditor, selectedTab);
+                selectedTab.Controls.Add(queryEditor);
                 queryEditor.Focus();
             }
             else
@@ -381,6 +431,12 @@ namespace DuckSQL.Controls
             Invalidate();
         }
 
+        public void CloseAllTabs()
+        {
+            var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
+            CloseTabs(tabIndexes);
+        }
+
         private bool ConfirmTabClosure(bool hasMultipleDirtyTabs)
         {
             if (!hasMultipleDirtyTabs)
@@ -423,31 +479,39 @@ namespace DuckSQL.Controls
             Invalidate();
         }
 
-        private void AttachEventHandlers(QueryEditorControl queryEditor, TabPage tab)
+        private void AttachEventHandlers(QueryEditorControl queryEditor, CustomTabPage tab)
         {
             //Handle new tab title styling
             queryEditor.QueryTextChanged += (s, args) =>
             {
-                if (!tab.Text.StartsWith(Resources.Strings.NewQueryTabTitle))
+                var hasModifiedIndicator = tab.Text.Trim().EndsWith('*');
+
+                if (tab.IsFileBackedTab)
                 {
-                    return; //This is a file backed tab. So it will be styled separately
+                    //This is a file backed tab. Any changes should make the tab dirty
+                    if (!hasModifiedIndicator)
+                    {
+                        tab.Text = tab.Text.Trim() + " *";
+                        Invalidate();
+                        TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
+                    }
+                    return; 
                 }
 
                 var isEmpty = string.IsNullOrWhiteSpace(queryEditor.QueryText);
-                var hasModifiedIndicator = tab.Text.Trim().EndsWith('*');
-
                 if (hasModifiedIndicator && isEmpty)
                 {
                     tab.Text = tab.Text.Replace("*", string.Empty).Trim();
                     Invalidate();
+                    TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
                 }
                 else if (!hasModifiedIndicator && !isEmpty)
                 {
                     tab.Text = tab.Text.Trim() + " *";
                     Invalidate();
+                    TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
                 }
             };
-            //Tell the main form a query was executed
             queryEditor.QueryExecuted += (s, args) =>
             {
                 QueryExecuted?.Invoke(s, args);
@@ -485,6 +549,17 @@ namespace DuckSQL.Controls
 
             var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
             CloseTabs(tabIndexes);
+        }
+
+        private void openQueryLocationToolStripMenuItem_Click(object? sender, EventArgs e)
+        {
+            if (TabPages[_rightClickedTabIndex] is CustomTabPage ctp
+                    && ctp.Tag is string path
+                    && Path.Exists(path)
+                    && Path.GetDirectoryName(path) is string dir)
+            {
+                Process.Start("explorer.exe", $"/select,\"{path}\"");
+            }
         }
 
         private void MoveTab(int tabToBeMovedIndex, int targetTabIndex)

@@ -42,9 +42,11 @@ namespace DuckSQL
             menuStrip1 = new MenuStrip();
             fileToolStripMenuItem = new ToolStripMenuItem();
             newQueryToolStripMenuItem = new ToolStripMenuItem();
+            openQueryToolStripMenuItem = new ToolStripMenuItem();
+            saveQueryToolStripMenuItem = new ToolStripMenuItem();
+            toolStripSeparator2 = new ToolStripSeparator();
             fileOpenToolStripMenuItem = new ToolStripMenuItem();
             openFolderToolStripMenuItem = new ToolStripMenuItem();
-            toolStripSeparator2 = new ToolStripSeparator();
             saveResultsAsToolStripMenuItem = new ToolStripMenuItem();
             toolStripSeparator1 = new ToolStripSeparator();
             exitToolStripMenuItem = new ToolStripMenuItem();
@@ -67,6 +69,8 @@ namespace DuckSQL
             openFileDialog = new OpenFileDialog();
             openFolderDialog = new FolderBrowserDialog();
             exportFileDialog = new SaveFileDialog();
+            openQueryDialog = new OpenFileDialog();
+            saveQueryDialog = new SaveFileDialog();
             queryEditorContextMenuStrip.SuspendLayout();
             menuStrip1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -99,7 +103,7 @@ namespace DuckSQL
             // 
             // fileToolStripMenuItem
             // 
-            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { newQueryToolStripMenuItem, fileOpenToolStripMenuItem, openFolderToolStripMenuItem, toolStripSeparator2, saveResultsAsToolStripMenuItem, toolStripSeparator1, exitToolStripMenuItem });
+            fileToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { newQueryToolStripMenuItem, openQueryToolStripMenuItem, saveQueryToolStripMenuItem, toolStripSeparator2, fileOpenToolStripMenuItem, openFolderToolStripMenuItem, saveResultsAsToolStripMenuItem, toolStripSeparator1, exitToolStripMenuItem });
             fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             resources.ApplyResources(fileToolStripMenuItem, "fileToolStripMenuItem");
             // 
@@ -109,6 +113,25 @@ namespace DuckSQL
             newQueryToolStripMenuItem.Name = "newQueryToolStripMenuItem";
             resources.ApplyResources(newQueryToolStripMenuItem, "newQueryToolStripMenuItem");
             newQueryToolStripMenuItem.Click += newToolStripMenuItem_Click;
+            // 
+            // openQueryToolStripMenuItem
+            // 
+            openQueryToolStripMenuItem.Image = Properties.Resources.open_file;
+            openQueryToolStripMenuItem.Name = "openQueryToolStripMenuItem";
+            resources.ApplyResources(openQueryToolStripMenuItem, "openQueryToolStripMenuItem");
+            openQueryToolStripMenuItem.Click += openQueryToolStripMenuItem_Click;
+            // 
+            // saveQueryToolStripMenuItem
+            // 
+            resources.ApplyResources(saveQueryToolStripMenuItem, "saveQueryToolStripMenuItem");
+            saveQueryToolStripMenuItem.Image = Properties.Resources.save_btn;
+            saveQueryToolStripMenuItem.Name = "saveQueryToolStripMenuItem";
+            saveQueryToolStripMenuItem.Click += saveQueryToolStripMenuItem_Click;
+            // 
+            // toolStripSeparator2
+            // 
+            toolStripSeparator2.Name = "toolStripSeparator2";
+            resources.ApplyResources(toolStripSeparator2, "toolStripSeparator2");
             // 
             // fileOpenToolStripMenuItem
             // 
@@ -123,15 +146,10 @@ namespace DuckSQL
             resources.ApplyResources(openFolderToolStripMenuItem, "openFolderToolStripMenuItem");
             openFolderToolStripMenuItem.Click += openFolderToolStripMenuItem_Click;
             // 
-            // toolStripSeparator2
-            // 
-            toolStripSeparator2.Name = "toolStripSeparator2";
-            resources.ApplyResources(toolStripSeparator2, "toolStripSeparator2");
-            // 
             // saveResultsAsToolStripMenuItem
             // 
             resources.ApplyResources(saveResultsAsToolStripMenuItem, "saveResultsAsToolStripMenuItem");
-            saveResultsAsToolStripMenuItem.Image = Properties.Resources.save_btn;
+            saveResultsAsToolStripMenuItem.Image = Properties.Resources.file_export;
             saveResultsAsToolStripMenuItem.Name = "saveResultsAsToolStripMenuItem";
             saveResultsAsToolStripMenuItem.Click += saveResultsAsToolStripMenuItem_Click;
             // 
@@ -237,6 +255,7 @@ namespace DuckSQL
             // 
             // queryEditorControl1
             // 
+            queryEditorControl1.AllowDrop = true;
             resources.ApplyResources(queryEditorControl1, "queryEditorControl1");
             queryEditorControl1.Name = "queryEditorControl1";
             queryEditorControl1.QueryExecuted = null;
@@ -256,6 +275,7 @@ namespace DuckSQL
             tabControl1.QueryExecuted = null;
             tabControl1.QueryExecutionStarted = null;
             tabControl1.SelectedIndex = 0;
+            tabControl1.TabDirtyStateChanged = null;
             tabControl1.SelectedIndexChanged += tabControl1_SelectedIndexChanged;
             // 
             // tabControlImageList
@@ -273,6 +293,14 @@ namespace DuckSQL
             // 
             resources.ApplyResources(openFolderDialog, "openFolderDialog");
             openFolderDialog.ShowNewFolderButton = false;
+            // 
+            // openQueryDialog
+            // 
+            resources.ApplyResources(openQueryDialog, "openQueryDialog");
+            // 
+            // saveQueryDialog
+            // 
+            resources.ApplyResources(saveQueryDialog, "saveQueryDialog");
             // 
             // MainForm
             // 
@@ -332,5 +360,9 @@ namespace DuckSQL
         private FolderBrowserDialog openFolderDialog;
         private ImageList tabControlImageList;
         private SaveFileDialog exportFileDialog;
+        private ToolStripMenuItem saveQueryToolStripMenuItem;
+        private ToolStripMenuItem openQueryToolStripMenuItem;
+        private OpenFileDialog openQueryDialog;
+        private SaveFileDialog saveQueryDialog;
     }
 }
