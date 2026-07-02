@@ -43,7 +43,6 @@ OFFSET {3} ";
         public QueryEditorControl()
         {
             InitializeComponent();
-            mainSplitContainer.Paint += MainSplitContainer_Paint;
             resultsGridView.ShowCopyAsWhereContextMenuItem = true;
             resultsGridView.CopyToClipboardIcon = Properties.Resources.copy_clipboard_icon.ToBitmap();
             resultsGridView.ColumnNameEscapeFormat = "\"{0}\"";
@@ -275,18 +274,6 @@ OFFSET {3} ";
         private void pasteTextMenuItem_Click(object sender, EventArgs e)
         {
             this.queryRichTextBox.Paste();
-        }
-
-        private void MainSplitContainer_Paint(object? sender, PaintEventArgs e)
-        {
-            //Draw a dashed splitter so it's easier to see and grab.
-            if (sender is SplitContainer splitContainer)
-            {
-                var rectangle = splitContainer.SplitterRectangle;
-                rectangle.Offset(0, 2);
-                e.Graphics.DrawLine(_splitterColor, rectangle.X, rectangle.Y,
-                    rectangle.X + rectangle.Width, rectangle.Y);
-            }
         }
 
         private static DataTable ConvertValues(DataTable intermediateResult)

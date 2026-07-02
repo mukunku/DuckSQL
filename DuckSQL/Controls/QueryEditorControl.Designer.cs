@@ -32,7 +32,7 @@ namespace DuckSQL.Controls
         {
             components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(QueryEditorControl));
-            mainSplitContainer = new SplitContainer();
+            mainSplitContainer = new GripSplitContainer();
             mainTableLayoutPanel = new TableLayoutPanel();
             queryRichTextBox = new FastColoredTextBox();
             queryEditorContextMenuStrip = new ContextMenuStrip(components);
@@ -71,6 +71,9 @@ namespace DuckSQL.Controls
             mainSplitContainer.BackColor = SystemColors.Control;
             mainSplitContainer.BorderStyle = BorderStyle.FixedSingle;
             mainSplitContainer.Dock = DockStyle.Fill;
+            mainSplitContainer.GripBackColor = Color.FromArgb(240, 240, 240);
+            mainSplitContainer.GripBorderColor = Color.Gray;
+            mainSplitContainer.GripDotColor = Color.DimGray;
             mainSplitContainer.Location = new Point(0, 0);
             mainSplitContainer.Name = "mainSplitContainer";
             mainSplitContainer.Orientation = Orientation.Horizontal;
@@ -85,7 +88,9 @@ namespace DuckSQL.Controls
             mainSplitContainer.Panel2.Controls.Add(resultsGridView);
             mainSplitContainer.Panel2.Controls.Add(statusStrip);
             mainSplitContainer.Size = new Size(800, 600);
+            mainSplitContainer.SplitterColor = Color.Gray;
             mainSplitContainer.SplitterDistance = 200;
+            mainSplitContainer.SplitterWidth = 12;
             mainSplitContainer.TabIndex = 0;
             // 
             // mainTableLayoutPanel
@@ -216,13 +221,13 @@ namespace DuckSQL.Controls
             resultsGridView.RowHeadersWidth = 24;
             resultsGridView.ShowCellToolTips = false;
             resultsGridView.ShowCopyAsWhereContextMenuItem = false;
-            resultsGridView.Size = new Size(798, 372);
+            resultsGridView.Size = new Size(798, 364);
             resultsGridView.TabIndex = 0;
             // 
             // statusStrip
             // 
             statusStrip.Items.AddRange(new ToolStripItem[] { toolStripStatusLabel1, showingCountLabel, toolStripStatusLabel2, toolStripStatusLabel3, zoomPercentageDropDown, queryExecutionStatusLabel, timeElapsedLabel });
-            statusStrip.Location = new Point(0, 372);
+            statusStrip.Location = new Point(0, 364);
             statusStrip.Name = "statusStrip";
             statusStrip.Size = new Size(798, 22);
             statusStrip.TabIndex = 2;
@@ -250,7 +255,7 @@ namespace DuckSQL.Controls
             // toolStripStatusLabel3
             // 
             toolStripStatusLabel3.Name = "toolStripStatusLabel3";
-            toolStripStatusLabel3.Size = new Size(415, 17);
+            toolStripStatusLabel3.Size = new Size(446, 17);
             toolStripStatusLabel3.Spring = true;
             // 
             // zoomPercentageDropDown
@@ -349,7 +354,7 @@ namespace DuckSQL.Controls
 
         #endregion
 
-        private SplitContainer mainSplitContainer;
+        private GripSplitContainer mainSplitContainer;
         private TableLayoutPanel mainTableLayoutPanel;
         private FastColoredTextBox queryRichTextBox;
         private Button executeQueryButton;
