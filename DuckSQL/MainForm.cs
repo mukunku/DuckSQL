@@ -30,6 +30,9 @@ namespace DuckSQL
 
             this.RefreshDateFormatMenuItemSelection();
             shareUsageDataToolStripMenuItem.Checked = AppSettings.AnalyticsDataGatheringConsent;
+
+            //Restore tabs from last session if any
+            tabControl1.ResumeLastSession();
         }
 
         private void newToolStripMenuItem_Click(object sender, EventArgs e)
@@ -62,15 +65,11 @@ namespace DuckSQL
 
         private async void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //Close all the tabs so we can confirm unsaved changes
-            if (tabControl1.TabPages.Count > 0)
-                tabControl1.CloseAllTabs();
+            tabControl1.SaveSessionCacheAndStopSession();
 
-            var exitEvent = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit };
-
+            var eventTask = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit }.Record();
             var timeout = Task.Delay(200);
-            var eventTask = exitEvent.Record();
-
+            
             await Task.WhenAny(timeout, eventTask);
 
             Application.Exit();

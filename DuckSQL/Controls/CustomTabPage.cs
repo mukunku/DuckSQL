@@ -26,6 +26,9 @@ namespace DuckSQL.Controls
             => this.Controls[0] is QueryEditorControl editor
             ? editor : throw new InvalidOperationException($"No query editor found");
 
+        public bool HasQueryEditor()
+            => this.Controls.Count > 0 && this.Controls[0] is QueryEditorControl;
+
         private void SetTabText(string title)
         {
             base.Text = title;

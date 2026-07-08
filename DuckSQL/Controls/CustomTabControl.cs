@@ -1,5 +1,7 @@
+using DuckSQL.Exceptions;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace DuckSQL.Controls
 {
@@ -34,6 +36,17 @@ namespace DuckSQL.Controls
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? TabDirtyStateChanged { get; set; }
 
+        #region Session Caching
+        private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = true, Interval = 1000 };
+        private int _lastCacheHashCode = 0;
+        private string _cachePath = CacheFilePath;
+
+        private const string CACHE_FILE_NAME = "DUCKSQL_QUERY_CACHE.json";
+        private const string CACHE_BACKUP_FILE_NAME = "DUCKSQL_QUERY_BACKUP_CACHE.json";
+        private static string CacheFilePath => Path.Combine(Path.GetTempPath(), CACHE_FILE_NAME);
+        private static string CacheBackupFilePath => Path.Combine(Path.GetTempPath(), CACHE_BACKUP_FILE_NAME);
+        #endregion
+
         public CustomTabControl()
         {
             DrawMode = TabDrawMode.OwnerDrawFixed;
@@ -46,6 +59,56 @@ namespace DuckSQL.Controls
             _openQueryLocationToolStripMenuItem.Click += openQueryLocationToolStripMenuItem_Click;
             AllowDrop = true;
             ShowToolTips = true;
+            _cacheOpenTabsTimer.Tick += _cacheOpenTabsTimer_Tick;
+        }
+
+        public void ResumeLastSession()
+        {
+            try
+            {
+                if (TabPages.Count != 1)
+                    throw new InvalidOperationException("Session can only be resumed on startup");
+
+                var mainCacheFileLastWriteTime = File.Exists(CacheFilePath) ? File.GetLastWriteTime(CacheFilePath) : DateTime.MinValue;
+                var backupCacheFileLastWriteTime = File.Exists(CacheBackupFilePath) ? File.GetLastWriteTime(CacheBackupFilePath) : DateTime.MinValue;
+
+                if (mainCacheFileLastWriteTime == DateTime.MinValue && backupCacheFileLastWriteTime == DateTime.MinValue)
+                    return; //nothing to restore
+
+                string cacheFileToUsePath;
+                if (mainCacheFileLastWriteTime > backupCacheFileLastWriteTime)
+                    cacheFileToUsePath = CacheFilePath;
+                else
+                    cacheFileToUsePath = CacheBackupFilePath;
+
+                var cacheDetails = JsonSerializer.Deserialize<TabControlCacheRecord>(File.ReadAllText(cacheFileToUsePath));
+
+                if (cacheDetails is null || cacheDetails.Records.Length == 0)
+                    return;
+
+                if (cacheDetails.Records.Length == 1 && cacheDetails.Records[0].Title.StartsWith(Resources.Strings.NewQueryTabTitle))
+                    return; //Only one empty query tab, nothing to restore
+
+                TabPage? selectedTab = null;
+                foreach (var cachedTab in cacheDetails.Records)
+                {
+                    var filePathOrQueryText = cachedTab.Tag;
+                    var restoredTab = RestoreTab(cachedTab.Title, filePathOrQueryText);
+                    if (cachedTab.IsSelectedTab)
+                        selectedTab = restoredTab;
+                }
+
+                if (selectedTab is not null)
+                    SelectedTab = selectedTab;
+
+                _newQueryCount = cacheDetails.NewQueryCount;
+
+                TabPages.RemoveAt(0); //Remove the default empty query tab
+            }
+            catch (Exception ex)
+            {
+                throw new SessionResumeFailedException("Failed to resume your last session.", ex);
+            }
         }
 
         protected override void OnDrawItem(DrawItemEventArgs e)
@@ -122,6 +185,7 @@ namespace DuckSQL.Controls
             #region File path tooltip
             if (GetSelectedTab().IsFileBackedTab && tabIndex is not null && closeButtonHoveredTabIndex is null)
             {
+                //TODO: Figure out why query text is showing up in tooltip hover
                 var hoveredTab = TabPages[tabIndex.Value];
                 var filePath = hoveredTab.Tag as string;
 
@@ -155,7 +219,7 @@ namespace DuckSQL.Controls
         protected override void OnDragOver(DragEventArgs e)
         {
             base.OnDragOver(e);
-            
+
             _dragStopTabIndex = null;
 
             if (_dragStartTabIndex is null)
@@ -294,10 +358,7 @@ namespace DuckSQL.Controls
                 tabName += $" {_newQueryCount}";
             }
 
-            var newTab = new CustomTabPage();
-            newTab.Text = tabName;
-            newTab.Tag = queryTextOrFilePath;
-            TabPages.Add(newTab);
+            CreateNewTabInternal(tabName, queryTextOrFilePath);
 
             if (hasNoTabs)
             {
@@ -305,6 +366,18 @@ namespace DuckSQL.Controls
             }
 
             return TabCount - 1;
+        }
+
+        public CustomTabPage RestoreTab(string title, string tag) => CreateNewTabInternal(title, tag);
+
+        private CustomTabPage CreateNewTabInternal(string title, string? tag)
+        {
+            var newTab = new CustomTabPage();
+            newTab.Text = title;
+            newTab.Tag = tag;
+            TabPages.Add(newTab);
+
+            return newTab;
         }
 
         public CustomTabPage GetSelectedTab() => (CustomTabPage)(SelectedTab ?? throw new InvalidOperationException("No selected tab found"));
@@ -334,7 +407,7 @@ namespace DuckSQL.Controls
             var tab = (CustomTabPage)TabPages[tabIndex];
             if (tab.Controls.Count == 0 || tab.Controls[0] is not QueryEditorControl queryEditor)
             {
-                return true;
+                return tab.Tag is null; //Tag won't be null for empty query editors
             }
 
             var hasQueryText = !string.IsNullOrWhiteSpace(queryEditor.QueryText);
@@ -427,6 +500,7 @@ namespace DuckSQL.Controls
         {
             var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
             CloseTabs(tabIndexes);
+            _newQueryCount = 0;
         }
 
         private bool ConfirmTabClosure(bool hasMultipleDirtyTabs)
@@ -487,7 +561,7 @@ namespace DuckSQL.Controls
                         Invalidate();
                         TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
                     }
-                    return; 
+                    return;
                 }
 
                 var isEmpty = string.IsNullOrWhiteSpace(queryEditor.QueryText);
@@ -569,7 +643,7 @@ namespace DuckSQL.Controls
                 for (var i = tabToBeMovedIndex; i > targetTabIndex; i--)
                 {
                     TabPages[i] = TabPages[i - 1];
-                }                
+                }
             }
             else
             {
@@ -579,5 +653,76 @@ namespace DuckSQL.Controls
             SelectedTab = tabToBeMoved;
             Refresh();
         }
+
+        private async void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
+        {
+            _cacheOpenTabsTimer.Stop();
+            try
+            {
+                var cacheRecords = new List<TabPageCacheRecord>();
+                foreach (TabPage page in TabPages)
+                {
+                    if (page is CustomTabPage ctp)
+                    {
+                        var tag = page.Tag as string;
+                        if (!ctp.IsFileBackedTab && ctp.HasQueryEditor())
+                        {
+                            var queryEditor = ctp.GetQueryEditor();
+                            tag = queryEditor.QueryText;
+                        }
+
+                        if (tag is null)
+                            continue;
+
+                        cacheRecords.Add(new(tag, page.Text.Trim(), SelectedTab == page));
+                    }
+                }
+
+                if (cacheRecords.Count > 0)
+                {
+                    //Check if anything changed, including the currently selected tab
+                    var tabCacheHash = new HashCode();
+                    tabCacheHash.Add(SelectedIndex);
+
+                    foreach (var cacheRecord in cacheRecords)
+                    {
+                        tabCacheHash.Add(cacheRecord.Tag);
+                        tabCacheHash.Add(cacheRecord.Title);
+                    }
+                    var tabCacheHashCode = tabCacheHash.ToHashCode();
+
+                    if (_lastCacheHashCode != tabCacheHashCode)
+                    {
+                        _lastCacheHashCode = tabCacheHashCode;
+                        var timeoutToken = new CancellationTokenSource(3000);
+
+                        var cacheDetails = new TabControlCacheRecord(_newQueryCount, cacheRecords.ToArray());
+                        await File.WriteAllTextAsync(_cachePath, JsonSerializer.Serialize(cacheDetails), timeoutToken.Token);
+                    }
+                }
+            }
+            catch
+            {
+                //Alternate between the main cache file and the backup one to help
+                //deal with any kind of weirdness and reduce the chance of data loss
+                if (_cachePath.Equals(CacheFilePath))
+                    _cachePath = CacheBackupFilePath;
+                else
+                    _cachePath = CacheFilePath;
+            }
+            finally
+            {
+                _cacheOpenTabsTimer.Start();
+            }
+        }
+
+        public void SaveSessionCacheAndStopSession()
+        {
+            this._cacheOpenTabsTimer.Stop();
+            _cacheOpenTabsTimer_Tick(null, EventArgs.Empty);
+        }
+
+        private record TabControlCacheRecord(int NewQueryCount, TabPageCacheRecord[] Records);
+        private record TabPageCacheRecord(string Tag, string Title, bool IsSelectedTab);
     }
 }

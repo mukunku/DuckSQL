@@ -18,7 +18,6 @@ FROM {1}
 LIMIT {2}
 OFFSET {3} ";
 
-        private Pen _splitterColor = new(Brushes.DarkGray, 2) { DashStyle = System.Drawing.Drawing2D.DashStyle.Solid };
         private static bool _wasByteArrayConversionErrorShown = false; //TODO: This should ideally be kept per tab/instance
         private CancellationTokenSource? _queryCancellationToken = null;
 
