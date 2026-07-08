@@ -1,8 +1,8 @@
-# DuckSQL
+# ![DuckSQL Logo](DuckSQL/Resources/DuckSQL-Logo-Transparent.ico) DuckSQL 
 
 A lightweight Windows desktop SQL query tool powered by [DuckDB](https://duckdb.org/). DuckSQL makes it easy to query data files (Parquet, CSV, JSON, XLSX, and more) using SQL without the need for a traditional database server.
 
-![DuckSQL Logo](DuckSQL/Resources/DuckSQL-Logo-Transparent.ico)
+<img width="1070" height="628" alt="image" src="https://github.com/user-attachments/assets/79d5cf4a-f71d-48b6-bd67-8eaa4619fdb0" />
 
 ## Features
 
@@ -57,9 +57,12 @@ FROM 'folder/*.parquet'
 WHERE date >= '2024-01-01'
 ```
 
-## Privacy
+# Analytics
+Users can opt-in to share anonymous usage data to help make the app better. [^1]
 
-DuckSQL includes optional anonymous usage analytics to help improve the application. You can opt-in or opt-out at any time via `Options > Share usage data`. See the privacy policy for more details.
+Checkout the [DuckSQL Analytics Dashboard](https://app.amplitude.com/analytics/share/7207c0b64c154e979afd7082980d6dd6) if you're interested!
+
+[^1]: Full privacy policy here: https://github.com/mukunku/DuckSQL/wiki/Privacy-Policy
 
 ## Contributing
 
