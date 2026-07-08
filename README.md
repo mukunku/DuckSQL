@@ -60,7 +60,7 @@ WHERE date >= '2024-01-01'
 # Analytics
 Users can opt-in to share anonymous usage data to help make the app better. [^1]
 
-Checkout the [DuckSQL Analytics Dashboard](https://app.amplitude.com/analytics/share/7207c0b64c154e979afd7082980d6dd6) if you're interested!
+<!--Checkout the [DuckSQL Analytics Dashboard](https://app.amplitude.com/analytics/share/7207c0b64c154e979afd7082980d6dd6) if you're interested!-->
 
 [^1]: Full privacy policy here: https://github.com/mukunku/DuckSQL/wiki/Privacy-Policy
 
