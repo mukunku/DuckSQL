@@ -32,12 +32,7 @@ namespace DuckSQL.Analytics
             SystemMemory = _systemRAM,
             Environment.ProcessorCount,
             AppSettings.DarkMode,
-            CultureInfo = (AppSettings.UserSelectedCulture ?? CultureInfo.CurrentUICulture).ToString(),
-#if RELEASE_SELFCONTAINED
-            SelfContainedExecutable = true,
-#else
-            SelfContainedExecutable = false,
-#endif
+            CultureInfo = (AppSettings.UserSelectedCulture ?? CultureInfo.CurrentUICulture).ToString()
         };
 
         public static bool HasApiKey => !string.IsNullOrEmpty(AMPLITUDE_API_KEY);
@@ -57,7 +52,7 @@ namespace DuckSQL.Analytics
 
                 var request = new
                 {
-                    api_key = string.Join(string.Empty, Base64Decode(_amplitudeConfiguration.ApiKey)),
+                    api_key = _amplitudeConfiguration.ApiKey,
                     events = new[] {
                     new {
                         device_id = DeviceId,

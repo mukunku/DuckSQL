@@ -1,3 +1,4 @@
+using DuckSQL.Analytics;
 using DuckSQL.Exceptions;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -464,14 +465,15 @@ namespace DuckSQL.Controls
             }
         }
 
-        public void CloseTabs(int[] tabIndexes)
+        //Returns false if the user cancels closing dirty tabs, true otherwise
+        public bool CloseTabs(int[] tabIndexes)
         {
             //Check if there are any dirty tabs being closed
             var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*')); //file paths can't have '*' in them in Windows so this check should work fine
             if (dirtyTabCount > 0 &&MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
-                return;
+                return false;
             }
 
             //Close tabs in descending order
@@ -483,7 +485,7 @@ namespace DuckSQL.Controls
                 //Check if there's anything left to close
                 if (TabCount == 1 && IsEmptyQueryEditor(0))
                 {
-                    return;
+                    return tabIndexes.Length > 1;
                 }
 
                 TabPages.RemoveAt(tabIndex);
@@ -498,6 +500,7 @@ namespace DuckSQL.Controls
             SelectedIndex = TabCount - 1;
 
             Invalidate();
+            return true;
         }
 
         public void CloseTab(int tabIndex)
@@ -592,7 +595,9 @@ namespace DuckSQL.Controls
                 return;
 
             var tabsToClose = Enumerable.Range(0, TabCount).Except([_rightClickedTabIndex]).ToArray();
-            CloseTabs(tabsToClose);
+            var wasTabsClosed = CloseTabs(tabsToClose);
+            if (wasTabsClosed)
+                MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.CloseOtherTabs);
         }
 
         private void closeAllTabsToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -601,7 +606,9 @@ namespace DuckSQL.Controls
                 return;
 
             var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
-            CloseTabs(tabIndexes);
+            var wasTabsClosed = CloseTabs(tabIndexes);
+            if (wasTabsClosed)
+                MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.CloseAllTabs);
         }
 
         private void openQueryLocationToolStripMenuItem_Click(object? sender, EventArgs e)

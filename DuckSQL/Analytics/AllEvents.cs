@@ -64,6 +64,8 @@ namespace DuckSQL.Analytics
             AboutBox,
             UserGuide,
             DragDrop,
+            CloseAllTabs,
+            CloseOtherTabs,
         }
     }
 
