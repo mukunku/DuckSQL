@@ -2,6 +2,8 @@
 
 A lightweight Windows desktop SQL query tool powered by [DuckDB](https://duckdb.org/). DuckSQL makes it easy to query data files (Parquet, CSV, JSON, XLSX, and more) using SQL without the need for a traditional database server.
 
+<img width="1070" height="628" alt="image" src="https://github.com/user-attachments/assets/79d5cf4a-f71d-48b6-bd67-8eaa4619fdb0" />
+
 ## Features
 
 - **Query Multiple File Formats**: Execute SQL queries directly against Parquet, CSV, JSON, Excel, and other data files
