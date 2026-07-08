@@ -186,15 +186,16 @@ namespace DuckSQL.Controls
             #endregion
 
             #region File path tooltip
-            if (GetSelectedTab().IsFileBackedTab && tabIndex is not null && closeButtonHoveredTabIndex is null)
+            if (tabIndex is not null)
             {
-                //TODO: Figure out why query text is showing up in tooltip hover
-                var hoveredTab = TabPages[tabIndex.Value];
-                var filePath = hoveredTab.Tag as string;
-
-                if (!string.IsNullOrWhiteSpace(filePath)) //just for extra safety
+                var hoveredTab = (CustomTabPage)TabPages[tabIndex.Value];
+                if (hoveredTab.IsFileBackedTab && tabIndex is not null && closeButtonHoveredTabIndex is null)
                 {
-                    hoveredTab.ToolTipText = filePath;
+                    var filePath = hoveredTab.Tag as string;
+                    if (!string.IsNullOrWhiteSpace(filePath)) //just for extra safety
+                    {
+                        hoveredTab.ToolTipText = filePath;
+                    }
                 }
             }
             #endregion
