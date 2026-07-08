@@ -57,9 +57,12 @@ FROM 'folder/*.parquet'
 WHERE date >= '2024-01-01'
 ```
 
-## Privacy
+# Analytics
+Users can opt-in to share anonymous usage data to help make the app better. [^1]
 
-DuckSQL includes optional anonymous usage analytics to help improve the application. You can opt-in or opt-out at any time via `Options > Share usage data`. See the privacy policy for more details.
+Checkout the [DuckSQL Analytics Dashboard](https://app.amplitude.com/analytics/share/7207c0b64c154e979afd7082980d6dd6) if you're interested!
+
+[^1]: Full privacy policy here: https://github.com/mukunku/DuckSQL/wiki/Privacy-Policy
 
 ## Contributing
 
