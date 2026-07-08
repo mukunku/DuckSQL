@@ -1,8 +1,6 @@
-# DuckSQL
+# ![DuckSQL Logo](DuckSQL/Resources/DuckSQL-Logo-Transparent.ico) DuckSQL 
 
 A lightweight Windows desktop SQL query tool powered by [DuckDB](https://duckdb.org/). DuckSQL makes it easy to query data files (Parquet, CSV, JSON, XLSX, and more) using SQL without the need for a traditional database server.
-
-![DuckSQL Logo](DuckSQL/Resources/DuckSQL-Logo-Transparent.ico)
 
 ## Features
 
