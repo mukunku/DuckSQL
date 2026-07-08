@@ -142,7 +142,10 @@ namespace DuckSQL.Controls
                 closeButtonRectangle.Width,
                 closeButtonRectangle.Height);
 
-            TextRenderer.DrawText(e.Graphics, tabPage.Text, tabPage.Font,
+            var isSelected = SelectedIndex == e.Index;
+            var font = isSelected ? new Font(tabPage.Font, FontStyle.Bold) : tabPage.Font;
+
+            TextRenderer.DrawText(e.Graphics, tabPage.Text, font,
                 tabRect, tabPage.ForeColor, TextFormatFlags.Left);
         }
 
