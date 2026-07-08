@@ -466,13 +466,10 @@ namespace DuckSQL.Controls
 
         public void CloseTabs(int[] tabIndexes)
         {
-            //Check if there are any dirt tabs being closed
-            var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*'));
-            if (dirtyTabCount == 1 && !ConfirmTabClosure(false))
-            {
-                return;
-            }
-            else if (dirtyTabCount > 1 && !ConfirmTabClosure(true))
+            //Check if there are any dirty tabs being closed
+            var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*')); //file paths can't have '*' in them in Windows so this check should work fine
+            if (dirtyTabCount > 0 &&MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return;
             }
@@ -497,28 +494,10 @@ namespace DuckSQL.Controls
                 CreateNewTab();
             }
 
+            //Last tab should be focused
+            SelectedIndex = TabCount - 1;
+
             Invalidate();
-        }
-
-        public void CloseAllTabs()
-        {
-            var tabIndexes = Enumerable.Range(0, TabCount).ToArray();
-            CloseTabs(tabIndexes);
-            _newQueryCount = 0;
-        }
-
-        private bool ConfirmTabClosure(bool hasMultipleDirtyTabs)
-        {
-            if (!hasMultipleDirtyTabs)
-            {
-                return MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK;
-            }
-            else
-            {
-                return MessageBox.Show("Are you sure you want to close these tabs? Any unsaved changes will be lost.", "Unsaved changes detected",
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK;
-            }
         }
 
         public void CloseTab(int tabIndex)
@@ -534,7 +513,8 @@ namespace DuckSQL.Controls
             }
 
             var isDirty = TabPages[tabIndex].Text.Contains('*');
-            if (isDirty && !ConfirmTabClosure(false))
+            if (isDirty && MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return;
             }
@@ -545,6 +525,9 @@ namespace DuckSQL.Controls
             {
                 CreateNewTab();
             }
+
+            //Last tab should be focused
+            SelectedIndex = TabCount - 1;
 
             Invalidate();
         }
