@@ -281,13 +281,13 @@
     <value>&amp;Edit</value>
   </data>
   <data name="userGuideToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
-    <value>165, 22</value>
+    <value>180, 22</value>
   </data>
   <data name="userGuideToolStripMenuItem.Text" xml:space="preserve">
     <value>User Guide</value>
   </data>
   <data name="shareUsageDataToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
-    <value>165, 22</value>
+    <value>180, 22</value>
   </data>
   <data name="shareUsageDataToolStripMenuItem.Text" xml:space="preserve">
     <value>Share Usage Data</value>
@@ -296,25 +296,28 @@
     <value>See About page for link to privacy policy</value>
   </data>
   <data name="englishToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
-    <value>112, 22</value>
+    <value>180, 22</value>
   </data>
   <data name="englishToolStripMenuItem.Text" xml:space="preserve">
     <value>English</value>
   </data>
   <data name="türkçeToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
-    <value>112, 22</value>
+    <value>180, 22</value>
   </data>
   <data name="türkçeToolStripMenuItem.Text" xml:space="preserve">
     <value>Türkçe</value>
   </data>
   <data name="languageToolStripMenuItem1.Size" type="System.Drawing.Size, System.Drawing">
-    <value>165, 22</value>
+    <value>180, 22</value>
   </data>
   <data name="languageToolStripMenuItem1.Text" xml:space="preserve">
     <value>Language</value>
   </data>
+  <data name="languageToolStripMenuItem1.Visible" type="System.Boolean, mscorlib">
+    <value>False</value>
+  </data>
   <data name="aboutToolStripMenuItem.Size" type="System.Drawing.Size, System.Drawing">
-    <value>165, 22</value>
+    <value>180, 22</value>
   </data>
   <data name="aboutToolStripMenuItem.Text" xml:space="preserve">
     <value>&amp;About</value>
@@ -412,7 +415,7 @@
         AAEAAAD/////AQAAAAAAAAAMAgAAAEZTeXN0ZW0uV2luZG93cy5Gb3JtcywgQ3VsdHVyZT1uZXV0cmFs
         LCBQdWJsaWNLZXlUb2tlbj1iNzdhNWM1NjE5MzRlMDg5BQEAAAAmU3lzdGVtLldpbmRvd3MuRm9ybXMu
         SW1hZ2VMaXN0U3RyZWFtZXIBAAAABERhdGEHAgIAAAAJAwAAAA8DAAAAJAMAAAJNU0Z0AUkBTAMBAQAB
-        4AEAAeABAAEQAQABEAEABP8BIQEACP8BQgFNATYHAAE2AwABKAMAAUADAAEQAwABAQEAASAGAAEQEgAD
+        6AEAAegBAAEQAQABEAEABP8BIQEACP8BQgFNATYHAAE2AwABKAMAAUADAAEQAwABAQEAASAGAAEQEgAD
         VwHCA18B1QMVAR0oAAMVAR0DXwHVA1cBwsAAA10B0QMAAf8DXgHdAxUBHSAAAxUBHQNeAd0DAAH/A1sB
         0MAAAxIBFwNfAdUDAAH/A2AB4AMYASAYAAMVAR0DXQHcAwAB/wNfAdoDFAEbxAADEgEXA18B1QMAAf8D
         YAHgAxgBIBAAAxUBHQNdAdwDAAH/A18B2gMUARvMAAMSARcDXwHVAwAB/wNgAeADGAEgCAADFQEdA10B
