@@ -111,13 +111,27 @@ OFFSET {3} ";
                     connection.Open();
 
                     using var command = connection.CreateCommand();
-                    command.CommandText = query;
+                    cancellationToken.Register(() =>
+                    {
+                        command.Cancel();
+                    });
 
+                    command.CommandText = query;
                     using var reader = command.ExecuteReader();
-                    result.Load(reader);
 
                     cancellationToken.ThrowIfCancellationRequested();
+                    result.Load(reader);
+                    cancellationToken.ThrowIfCancellationRequested();
                 }, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex) when (cancellationToken.IsCancellationRequested && ex is DuckDBException)
+            {
+                //Supposedly this is the error DuckDB throws when the command is cancelled but I haven't been able to re-create it.
+                throw new OperationCanceledException();
             }
             catch (Exception ex)
             {
