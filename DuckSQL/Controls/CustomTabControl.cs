@@ -87,7 +87,8 @@ namespace DuckSQL.Controls
                 if (cacheDetails is null || cacheDetails.Records.Length == 0)
                     return;
 
-                if (cacheDetails.Records.Length == 1 && cacheDetails.Records[0].Title.StartsWith(Resources.Strings.NewQueryTabTitle))
+                if (cacheDetails.Records.Length == 1 && cacheDetails.Records[0].Title.StartsWith(Resources.Strings.NewQueryTabTitle)
+                    && string.IsNullOrWhiteSpace(cacheDetails.Records[0].Tag))
                     return; //Only one empty query tab, nothing to restore
 
                 TabPage? selectedTab = null;
@@ -470,7 +471,7 @@ namespace DuckSQL.Controls
         {
             //Check if there are any dirty tabs being closed
             var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*')); //file paths can't have '*' in them in Windows so this check should work fine
-            if (dirtyTabCount > 0 &&MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
+            if (dirtyTabCount > 0 && MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1 ? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return false;
@@ -665,34 +666,31 @@ namespace DuckSQL.Controls
                             tag = queryEditor.QueryText;
                         }
 
-                        if (tag is null)
+                        if (string.IsNullOrWhiteSpace(tag))
                             continue;
 
                         cacheRecords.Add(new(tag, page.Text.Trim(), SelectedTab == page));
                     }
                 }
 
-                if (cacheRecords.Count > 0)
+                //Check if anything changed, including the currently selected tab
+                var tabCacheHash = new HashCode();
+                tabCacheHash.Add(SelectedIndex);
+
+                foreach (var cacheRecord in cacheRecords)
                 {
-                    //Check if anything changed, including the currently selected tab
-                    var tabCacheHash = new HashCode();
-                    tabCacheHash.Add(SelectedIndex);
+                    tabCacheHash.Add(cacheRecord.Tag);
+                    tabCacheHash.Add(cacheRecord.Title);
+                }
+                var tabCacheHashCode = tabCacheHash.ToHashCode();
 
-                    foreach (var cacheRecord in cacheRecords)
-                    {
-                        tabCacheHash.Add(cacheRecord.Tag);
-                        tabCacheHash.Add(cacheRecord.Title);
-                    }
-                    var tabCacheHashCode = tabCacheHash.ToHashCode();
+                if (_lastCacheHashCode != tabCacheHashCode)
+                {
+                    _lastCacheHashCode = tabCacheHashCode;
+                    var timeoutToken = new CancellationTokenSource(3000);
 
-                    if (_lastCacheHashCode != tabCacheHashCode)
-                    {
-                        _lastCacheHashCode = tabCacheHashCode;
-                        var timeoutToken = new CancellationTokenSource(3000);
-
-                        var cacheDetails = new TabControlCacheRecord(_newQueryCount, cacheRecords.ToArray());
-                        await File.WriteAllTextAsync(_cachePath, JsonSerializer.Serialize(cacheDetails), timeoutToken.Token);
-                    }
+                    var cacheDetails = new TabControlCacheRecord(_newQueryCount, cacheRecords.ToArray());
+                    await File.WriteAllTextAsync(_cachePath, JsonSerializer.Serialize(cacheDetails), timeoutToken.Token);
                 }
             }
             catch

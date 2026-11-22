@@ -39,6 +39,9 @@ OFFSET {3} ";
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public string? CurrentFilePath { get; set; }
 
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+        public string? LastExecutedQuery { get; private set; }
+
         public QueryEditorControl()
         {
             InitializeComponent();
@@ -116,10 +119,6 @@ OFFSET {3} ";
                     cancellationToken.ThrowIfCancellationRequested();
                 }, cancellationToken);
             }
-            catch (OperationCanceledException)
-            {
-                return result;
-            }
             catch (Exception ex)
             {
                 result.Dispose();
@@ -155,6 +154,9 @@ OFFSET {3} ";
             if (string.IsNullOrWhiteSpace(this.queryRichTextBox.Text))
                 return;
 
+            var query = this.queryRichTextBox.Text;
+            LastExecutedQuery = null;
+
             //Cleanup previous results
             if (this.resultsGridView.DataSource is DataTable dt)
             {
@@ -172,7 +174,7 @@ OFFSET {3} ";
             cancelQueryButton.Enabled = true;
 
             var stopwatch = Stopwatch.StartNew();
-            var queryTask = ExecuteQueryAsync(this.queryRichTextBox.Text, _queryCancellationToken.Token);
+            var queryTask = ExecuteQueryAsync(query, _queryCancellationToken.Token);
 
             while (!queryTask.IsCompleted && !_queryCancellationToken.IsCancellationRequested)
             {
@@ -210,7 +212,12 @@ OFFSET {3} ";
                 stopwatch.Stop();
                 var renderDuration = stopwatch.Elapsed;
 
+                LastExecutedQuery = query;
                 QueryExecuted?.Invoke(this, new QueryExecutedEventArgs(queryDuration, conversionDuration, renderDuration));
+            }
+            catch (OperationCanceledException)
+            {
+                return;
             }
             catch (QueryExecuteException ex)
             {

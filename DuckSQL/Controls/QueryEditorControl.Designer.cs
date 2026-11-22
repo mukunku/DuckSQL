@@ -41,7 +41,7 @@ namespace DuckSQL.Controls
             executeQueryButton = new Button();
             cancelQueryButton = new Button();
             resultsGridView = new ParquetGridView();
-            statusStrip = new StatusStrip();
+            statusStrip = new FormSizingStatusStrip();
             toolStripStatusLabel1 = new ToolStripStatusLabel();
             showingCountLabel = new ToolStripStatusLabel();
             toolStripStatusLabel2 = new ToolStripStatusLabel();
@@ -363,7 +363,7 @@ namespace DuckSQL.Controls
         private ToolStripMenuItem copyTextMenuItem;
         private ToolStripMenuItem pasteTextMenuItem;
         private ToolTip executeQueryButtonTooltip;
-        private StatusStrip statusStrip;
+        private FormSizingStatusStrip statusStrip;
         private ToolStripStatusLabel toolStripStatusLabel1;
         private ToolStripStatusLabel showingCountLabel;
         private ToolStripStatusLabel toolStripStatusLabel2;

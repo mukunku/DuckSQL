@@ -3,6 +3,7 @@ using DuckSQL.Controls;
 using DuckSQL.Exceptions;
 using DuckSQL.Helpers;
 using DuckSQL.Resources;
+using DuckDB.NET.Data;
 using MiniExcelLibs;
 using System.Data;
 using System.Diagnostics;
@@ -297,14 +298,16 @@ namespace DuckSQL
             string? filePath = null;
             LoadingIcon? loadingIcon = null;
             FileType? rerunType = null;
-            var dataTable = tabControl1.SelectedTab?.Controls[0] is QueryEditorControl editor ? editor.GetDataSource() : null;
+            var editor = tabControl1.SelectedTab?.Controls[0] as QueryEditorControl;
+            var dataTable = editor?.GetDataSource();
+
             if (dataTable is null || dataTable.Columns.Count == 0)
                 return;
 
             try
             {
                 this.exportFileDialog.Title = Resources.Strings.RecordsToBeExportedTitleFormat.Format(dataTable.Rows.Count);
-                this.exportFileDialog.Filter = "CSV file (*.csv)|*.csv|JSON file (*.json)|*.json|Excel '93 file (*.xls)|*.xls|Excel '07 file (*.xlsx)|*.xlsx";
+                this.exportFileDialog.Filter = "CSV file (*.csv)|*.csv|JSON file (*.json)|*.json|Excel '93 file (*.xls)|*.xls|Excel '07 file (*.xlsx)|*.xlsx|Parquet file (*.parquet)|*.parquet";
                 this.exportFileDialog.FilterIndex = (int)defaultFileType + 1;
                 if (filePathWithExtension is not null || this.exportFileDialog.ShowDialog() == DialogResult.OK)
                 {
@@ -320,7 +323,7 @@ namespace DuckSQL
                     loadingIcon = this.ShowLoadingIcon(Resources.Strings.ExportingDataLabelText, dataTable.DefaultView.Count * dataTable.Columns.Count);
 
                     await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
-                        loadingIcon, tabControl1.SelectedTab?.Text);
+                        loadingIcon, tabControl1.SelectedTab?.Text, editor?.LastExecutedQuery);
 
                     stopWatch.Stop();
                     loadingIcon.Hide();
@@ -344,8 +347,9 @@ namespace DuckSQL
                     }
                 }
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is IOException or DuckDBException)
             {
+                //DuckDBException: parquet export re-runs the query, which can fail (e.g. source file moved or isn't a SELECT)
                 CleanupFile(filePath);
                 MessageBox.Show(ex.Message, Resources.Errors.ExportFailedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -411,7 +415,8 @@ namespace DuckSQL
            string filePath,
            CancellationToken cancellationToken,
            IProgress<int> progress,
-           string? sourceTabName)
+           string? sourceTabName,
+           string? sourceQuery)
         {
             if (fileType == FileType.CSV)
             {
@@ -452,6 +457,20 @@ namespace DuckSQL
             else if (fileType == FileType.JSON)
             {
                 return WriteDataToJSONFile(dataTable, filePath, cancellationToken, progress);
+            }
+            else if (fileType == FileType.PARQUET)
+            {
+                if (string.IsNullOrWhiteSpace(sourceQuery))
+                {
+                    MessageBox.Show(
+                        Resources.Errors.ParquetExportQueryUnavailableErrorMessage,
+                        Resources.Errors.ExportFailedErrorTitle,
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                    return Task.CompletedTask;
+                }
+
+                return WriteDataToParquetFile(dataTable, sourceQuery, filePath, cancellationToken, progress);
             }
             else
             {
@@ -643,6 +662,56 @@ namespace DuckSQL
                     jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
+            }, cancellationToken);
+
+        private static Task WriteDataToParquetFile(DataTable dataTable, string query, string path, CancellationToken cancellationToken, IProgress<int> progress)
+            => Task.Run(() =>
+            {
+                //Re-run the source query straight into a parquet file so DuckDB preserves the exact column types (structs, lists, maps, etc.)
+                //Trailing semicolons aren't allowed inside COPY (...) and the newline guards against a trailing line comment
+                var sourceQuery = query.Trim().TrimEnd(';').TrimEnd();
+                var copyQuery = $"SELECT * FROM ({sourceQuery}\n) {GetOrderByClause(dataTable)}";
+
+                using var connection = new DuckDBConnection("Data Source=:memory:");
+                connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = $"COPY ({copyQuery}) TO '{path.Replace("'", "''")}' (FORMAT parquet, COMPRESSION zstd);";
+
+                using var cancellationRegistration = cancellationToken.Register(command.Cancel);
+                try
+                {
+                    command.ExecuteNonQuery();
+                }
+                catch (Exception ex) when (cancellationToken.IsCancellationRequested && ex is OperationCanceledException or DuckDBException)
+                {
+                    return; //The caller cleans up the partially written file
+                }
+
+                progress.Report(dataTable.DefaultView.Count * dataTable.Columns.Count);
+
+                //Carry over any sorting the user applied in the grid. Columns are referenced by position since
+                //DataTable may have renamed duplicate column names (e.g. `SELECT a, a`)
+                static string GetOrderByClause(DataTable dataTable)
+                {
+                    var sort = dataTable.DefaultView.Sort;
+                    if (string.IsNullOrWhiteSpace(sort))
+                        return string.Empty;
+
+                    foreach (DataColumn column in dataTable.Columns)
+                    {
+                        foreach (var columnToken in new[] { $"[{column.ColumnName}]", $"[{column.ColumnName.Replace("]", "\\]")}]", column.ColumnName })
+                        {
+                            //DataView sorts DBNull first when ascending, so match that
+                            if (sort.Equals($"{columnToken} ASC", StringComparison.Ordinal) || sort.Equals(columnToken, StringComparison.Ordinal))
+                                return $"ORDER BY {column.Ordinal + 1} ASC NULLS FIRST";
+                            if (sort.Equals($"{columnToken} DESC", StringComparison.Ordinal))
+                                return $"ORDER BY {column.Ordinal + 1} DESC NULLS LAST";
+                        }
+                    }
+
+                    throw new NotSupportedException($"Unable to translate grid sort '{sort}' to SQL");
+                }
             }, cancellationToken);
 
         private void QueryExecutedEventHandler(object? sender, QueryEditorControl.QueryExecutedEventArgs args)
