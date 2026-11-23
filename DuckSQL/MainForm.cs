@@ -452,7 +452,7 @@ namespace DuckSQL
                     return Task.CompletedTask;
                 }
 
-                return WriteDataToExcel2007File(dataTable, filePath, "Sheet1", cancellationToken, progress);
+                return WriteDataToExcel2007File(dataTable, filePath, sourceTabName, cancellationToken, progress);
             }
             else if (fileType == FileType.JSON)
             {
@@ -629,12 +629,14 @@ namespace DuckSQL
                 excelWriter.EndWrite();
             }, cancellationToken);
 
-        private static async Task WriteDataToExcel2007File(DataTable mainDataSource, string path, string sheetName, CancellationToken cancellationToken, IProgress<int> progress)
+        private static async Task WriteDataToExcel2007File(DataTable mainDataSource, string path, string? sheetName, CancellationToken cancellationToken, IProgress<int> progress)
         {
             const int MAX_XLSX_SHEET_NAME_LENGTH = 31;
 
-            //sanitize sheet name
-            sheetName = Regex.Replace(sheetName, "[^a-zA-Z0-9 _\\-()]", string.Empty).Left(MAX_XLSX_SHEET_NAME_LENGTH);
+            //sanitize sheet name.
+            sheetName = Regex.Replace(sheetName ?? string.Empty, "[^a-zA-Z0-9 _\\-()]", string.Empty).Trim().Left(MAX_XLSX_SHEET_NAME_LENGTH);
+            if (string.IsNullOrWhiteSpace(sheetName))
+                sheetName = "Sheet1"; //sheet names can't be empty
 
             using var fs = new FileStream(path, FileMode.OpenOrCreate);
             await fs.SaveAsAsync(mainDataSource, printHeader: true, sheetName, ExcelType.XLSX, configuration: null, progress, cancellationToken);
