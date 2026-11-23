@@ -75,7 +75,7 @@ namespace DuckSQL
         {
             var eventTask = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit }.Record();
             var timeout = Task.Delay(200);
-            
+
             await Task.WhenAny(timeout, eventTask);
 
             Application.Exit();
@@ -89,7 +89,7 @@ namespace DuckSQL
 
                 if (selectedDateFormat != DateFormat.Custom)
                 {
-                    AppSettings.DateTimeDisplayFormat = selectedDateFormat;
+                    SetNewDateFormat(selectedDateFormat);
                 }
                 else
                 {
@@ -102,19 +102,25 @@ namespace DuckSQL
                     using var customDateFormatInputForm = new CustomDateFormatInputForm(customDateFormat);
                     if (customDateFormatInputForm.ShowDialog(this) == DialogResult.OK)
                     {
-                        AppSettings.DateTimeDisplayFormat = DateFormat.Custom;
-                        AppSettings.CustomDateFormat = customDateFormatInputForm.UserEnteredDateFormat;
+                        SetNewDateFormat(DateFormat.Custom, customDateFormatInputForm.UserEnteredDateFormat);
                     }
                 }
 
-                this.RefreshDateFormatMenuItemSelection();
-
-                // Refresh all query editor controls
-                foreach (TabPage tabPage in tabControl1.TabPages)
+                void SetNewDateFormat(DateFormat dateFormat, string? customDateFormat = null)
                 {
-                    if (tabPage.Controls[0] is QueryEditorControl editor)
+                    AppSettings.DateTimeDisplayFormat = dateFormat;
+                    if (dateFormat == DateFormat.Custom)
+                        AppSettings.CustomDateFormat = customDateFormat;
+
+                    RefreshDateFormatMenuItemSelection();
+
+                    // Refresh all initialized query editor controls
+                    foreach (var tabPage in tabControl1.TabPages.OfType<CustomTabPage>())
                     {
-                        editor.RefreshControl();
+                        if (tabPage.HasQueryEditor())
+                        {
+                            tabPage.GetQueryEditor().RefreshControl();
+                        }
                     }
                 }
             }
