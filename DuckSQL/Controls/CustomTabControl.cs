@@ -386,8 +386,8 @@ namespace DuckSQL.Controls
             }
             else
             {
-                var queryText = filePath is null ? null : QueryEditorControl.BuildSelectQuery(filePath);
-                newTab = CustomTabPage.ForScratch(scratchNumber ?? ++_newQueryCount, queryText);
+                var number = scratchNumber ?? ++_newQueryCount;
+                newTab = filePath is null ? CustomTabPage.ForScratch(number) : CustomTabPage.ForDataSource(number, filePath);
             }
 
             AddTab(newTab);
@@ -503,11 +503,7 @@ namespace DuckSQL.Controls
         //All tabs must be added through here so their events get relayed
         private void AddTab(CustomTabPage tab)
         {
-            tab.DirtyStateChanged += (s, args) =>
-            {
-                Invalidate(); //Force a redraw to show the new state
-                TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-            };
+            tab.DirtyStateChanged += (s, args) => TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
             tab.QueryExecuted += (s, args) => QueryExecuted?.Invoke(s, args);
             tab.QueryExecutionStarted += (s, args) => QueryExecutionStarted?.Invoke(s, args);
             tab.DragDrop += (s, args) => OnDragDrop(args);
@@ -667,8 +663,9 @@ namespace DuckSQL.Controls
                     return CustomTabPage.ForSqlFile(tag);
 
                 var scratchNumber = int.TryParse(title.Trim(' ', '*').Split(' ').Last(), out var number) ? number : 1;
-                var queryText = File.Exists(tag) || Directory.Exists(tag) ? QueryEditorControl.BuildSelectQuery(tag) : tag;
-                return CustomTabPage.ForScratch(scratchNumber, queryText);
+                return File.Exists(tag) || Directory.Exists(tag)
+                    ? CustomTabPage.ForDataSource(scratchNumber, tag)
+                    : CustomTabPage.ForScratch(scratchNumber, tag);
             }
         }
     }

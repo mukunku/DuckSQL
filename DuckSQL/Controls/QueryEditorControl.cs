@@ -62,20 +62,6 @@ OFFSET {3} ";
             AllowDrop = true;
         }
 
-        public QueryEditorControl(string filePath, int offset = 0, int limit = 1000) : this()
-        {
-            if (UtilityMethods.IsSqlFile(filePath))
-            {
-                var fileContent = File.ReadAllText(filePath);
-                QueryText = fileContent;
-            }
-            else
-            {
-                QueryText = BuildSelectQuery(filePath, offset, limit);
-            }
-            executeQueryButton.Enabled = true;
-        }
-
         /// <summary>Builds the default query used to preview a data file or folder.</summary>
         public static string BuildSelectQuery(string filePath, int offset = 0, int limit = 1000)
         {

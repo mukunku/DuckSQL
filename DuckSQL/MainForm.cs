@@ -782,8 +782,8 @@ namespace DuckSQL
 
             if (selectedTab.IsDirty)
             {
-                var trimmedTabTitle = selectedTab.Text.Trim(' ', '*');
-                saveQueryDialog.FileName = trimmedTabTitle.EndsWith(".sql") ? trimmedTabTitle : (trimmedTabTitle + ".sql");
+                var tabTitle = selectedTab.Title;
+                saveQueryDialog.FileName = UtilityMethods.IsSqlFile(tabTitle) ? tabTitle : (tabTitle + ".sql");
 
                 var shouldSave = selectedTab.IsFileBackedTab || saveQueryDialog.ShowDialog() == DialogResult.OK;
                 if (shouldSave)

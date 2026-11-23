@@ -28,13 +28,6 @@ namespace DuckSQL.Controls
         //Text to load into the query editor once it's lazily created
         private string? _initialQueryText;
 
-        [AllowNull]
-        public override string Text
-        {
-            get => base.Text;
-            set => SetTabText(value ?? string.Empty);
-        }
-
         private CustomTabPage(TabKind kind, string? filePath, int scratchNumber, string? initialQueryText, bool isDirty)
         {
             this.Font = new Font("Segoe UI", 9);
@@ -49,11 +42,20 @@ namespace DuckSQL.Controls
         public static CustomTabPage ForScratch(int scratchNumber, string? queryText = null)
             => new(TabKind.Scratch, null, scratchNumber, queryText, !string.IsNullOrWhiteSpace(queryText));
 
+        /// <summary>A scratch tab pre-filled with a query that previews the data file or folder at <paramref name="path"/>.</summary>
+        public static CustomTabPage ForDataSource(int scratchNumber, string path)
+            => ForScratch(scratchNumber, QueryEditorControl.BuildSelectQuery(path));
+
         /// <param name="unsavedText">Unsaved edits to show instead of the file's contents</param>
         public static CustomTabPage ForSqlFile(string filePath, string? unsavedText = null)
             => new(TabKind.SqlFile, filePath, 0, unsavedText, unsavedText is not null);
 
         public bool IsFileBackedTab => Kind == TabKind.SqlFile;
+
+        /// <summary>The tab's name without the dirty marker or padding, e.g. "foo.sql" or "New query 3".</summary>
+        public string Title => Kind == TabKind.SqlFile
+            ? Path.GetFileName(FilePath)!
+            : ScratchNumber > 1 ? $"{Resources.Strings.NewQueryTabTitle} {ScratchNumber}" : Resources.Strings.NewQueryTabTitle;
 
         /// <summary>The editor's text, or the text it will be created with if it hasn't been created yet.</summary>
         public string CurrentText => HasQueryEditor() ? GetQueryEditor().QueryText : _initialQueryText ?? string.Empty;
@@ -70,10 +72,9 @@ namespace DuckSQL.Controls
             if (HasQueryEditor())
                 return GetQueryEditor();
 
-            var editor = IsFileBackedTab && _initialQueryText is null && File.Exists(FilePath)
-                ? new QueryEditorControl(FilePath)
-                : new QueryEditorControl { QueryText = _initialQueryText ?? string.Empty };
-            editor.Dock = DockStyle.Fill;
+            var queryText = _initialQueryText
+                ?? (IsFileBackedTab && File.Exists(FilePath) ? File.ReadAllText(FilePath) : string.Empty);
+            var editor = new QueryEditorControl { Dock = DockStyle.Fill, QueryText = queryText };
             _initialQueryText = null;
 
             //File backed tabs become dirty on any change. Scratch tabs are dirty as long as they have text.
@@ -89,12 +90,12 @@ namespace DuckSQL.Controls
 
         public void SetDirty(bool isDirty)
         {
-            if (IsDirty == isDirty)
-                return;
-
+            var changed = IsDirty != isDirty;
             IsDirty = isDirty;
-            UpdateTitle();
-            DirtyStateChanged?.Invoke(this, EventArgs.Empty);
+            UpdateTitle(); //Always refresh, since callers like MarkSaved can change the title without changing dirtiness
+
+            if (changed)
+                DirtyStateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         /// <summary>Marks the tab as saved to <paramref name="filePath"/>, turning scratch tabs into file backed ones.</summary>
@@ -102,26 +103,21 @@ namespace DuckSQL.Controls
         {
             Kind = TabKind.SqlFile;
             FilePath = filePath;
-            UpdateTitle(); //Update the title here too just in case
             SetDirty(false);
         }
 
         private void UpdateTitle()
         {
-            var title = Kind == TabKind.SqlFile
-                ? Path.GetFileName(FilePath)
-                : ScratchNumber > 1 ? $"{Resources.Strings.NewQueryTabTitle} {ScratchNumber}" : Resources.Strings.NewQueryTabTitle;
+            var text = (IsDirty ? $"{Title} *" : Title) + new string(' ', 6); //add padding for the close button. magic number
+            if (Text != text)
+            {
+                Text = text;
+                Parent?.Invalidate(); //repaint to show the updated title
+            }
 
-            Text = IsDirty ? $"{title} *" : title;
-            ToolTipText = FilePath ?? string.Empty;
-        }
-
-        private void SetTabText(string title)
-        {
-            base.Text = title;
-
-            //add padding for the close button
-            base.Text += new string(' ', 6); //magic number
+            var toolTipText = FilePath ?? string.Empty;
+            if (ToolTipText != toolTipText)
+                ToolTipText = toolTipText;
         }
     }
 }
