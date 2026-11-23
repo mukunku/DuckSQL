@@ -473,7 +473,7 @@ namespace DuckSQL.Controls
             }
 
             var isDirty = ((CustomTabPage)TabPages[tabIndex]).IsDirty;
-            if (isDirty && MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
+            if (isDirty && MessageBox.Show(Resources.Strings.CloseDirtyTabWarningMessage, Resources.Strings.UnsavedChangesWarningTitle,
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 _closeButtonHoveredTabIndex = null; //The dialog took over focus

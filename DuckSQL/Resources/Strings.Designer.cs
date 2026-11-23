@@ -79,6 +79,15 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Are you sure you want to close this tab? Any unsaved changes will be lost..
+        /// </summary>
+        internal static string CloseDirtyTabWarningMessage {
+            get {
+                return ResourceManager.GetString("CloseDirtyTabWarningMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsaved changes in {0} of the tabs you&apos;re closing will be lost. Are you sure you want to continue?.
         /// </summary>
         internal static string CloseDirtyTabsWarningMessageFormat {

@@ -261,6 +261,10 @@ Would you like to switch to a {2} file instead?</value>
     <value>Open query location</value>
     <comment>Text shown in the right click context menu on tabs that are backed by a sql file</comment>
   </data>
+  <data name="CloseDirtyTabWarningMessage" xml:space="preserve">
+    <value>Are you sure you want to close this tab? Any unsaved changes will be lost.</value>
+    <comment>Shown when the user closes a single tab that has unsaved changes</comment>
+  </data>
   <data name="CloseDirtyTabsWarningMessageFormat" xml:space="preserve">
     <value>Unsaved changes in {0} of the tabs you're closing will be lost. Are you sure you want to continue?</value>
     <comment>Shown when the user closes multiple tabs at once and some of them have unsaved changes. {0} is the number of tabs with unsaved changes, which can be 1. Phrase it so it reads correctly for any number</comment>

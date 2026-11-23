@@ -100,7 +100,7 @@ OFFSET {3} ";
                     connection.Open();
 
                     using var command = connection.CreateCommand();
-                    cancellationToken.Register(() =>
+                    using var _ = cancellationToken.Register(() =>
                     {
                         command.Cancel();
                     });
