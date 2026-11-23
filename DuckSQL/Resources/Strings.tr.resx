@@ -226,4 +226,10 @@ Onun yerine sonuçlari {2} dosyasına aktarmak ister misiniz?</value>
   <data name="OpenQueryLocationText" xml:space="preserve">
     <value>Sorgu konumunu aç</value>
   </data>
+  <data name="CloseDirtyTabsWarningMessageFormat" xml:space="preserve">
+    <value>Kapattığın sekmelerden {0} tanesindeki kaydedilmemiş değişiklikler kaybolacak. Devam etmek istediğinden emin misin?</value>
+  </data>
+  <data name="UnsavedChangesWarningTitle" xml:space="preserve">
+    <value>Kaydedilmemiş değişiklikler algılandı</value>
+  </data>
 </root>

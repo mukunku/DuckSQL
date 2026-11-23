@@ -79,6 +79,15 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unsaved changes in {0} of the tabs you&apos;re closing will be lost. Are you sure you want to continue?.
+        /// </summary>
+        internal static string CloseDirtyTabsWarningMessageFormat {
+            get {
+                return ResourceManager.GetString("CloseDirtyTabsWarningMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Close other tabs.
         /// </summary>
         internal static string CloseOtherTabsText {
@@ -376,6 +385,15 @@ namespace DuckSQL.Resources {
         internal static string TypeText {
             get {
                 return ResourceManager.GetString("TypeText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsaved changes detected.
+        /// </summary>
+        internal static string UnsavedChangesWarningTitle {
+            get {
+                return ResourceManager.GetString("UnsavedChangesWarningTitle", resourceCulture);
             }
         }
     }

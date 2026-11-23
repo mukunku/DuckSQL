@@ -15,12 +15,12 @@ namespace DuckSQL.Controls
         private static int _newQueryCount = 0;
 
         #region Context Menu
-        private ContextMenuStrip _rightClickTabContextMenuStrip = new();
-        private ToolStripMenuItem _closeTabToolStripMenuItem = new() { Text = Resources.Strings.CloseTabText };
-        private ToolStripMenuItem _closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
-        private ToolStripMenuItem _closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
-        private ToolStripSeparator firstToolStripSeparator = new();
-        private ToolStripMenuItem _openQueryLocationToolStripMenuItem = new() { Text = Resources.Strings.OpenQueryLocationText };
+        private readonly ContextMenuStrip _rightClickTabContextMenuStrip = new();
+        private readonly ToolStripMenuItem _closeTabToolStripMenuItem = new() { Text = Resources.Strings.CloseTabText };
+        private readonly ToolStripMenuItem _closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
+        private readonly ToolStripMenuItem _closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
+        private readonly ToolStripSeparator _firstToolStripSeparator = new();
+        private readonly ToolStripMenuItem _openQueryLocationToolStripMenuItem = new() { Text = Resources.Strings.OpenQueryLocationText };
         #endregion
 
         #region Drag & Drop
@@ -28,6 +28,7 @@ namespace DuckSQL.Controls
         private int? _dragStopTabIndex = null;
         #endregion
 
+        #region Events
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? QueryExecutionStarted { get; set; }
 
@@ -36,6 +37,7 @@ namespace DuckSQL.Controls
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? TabDirtyStateChanged { get; set; }
+        #endregion
 
         #region Session Caching
         private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = true, Interval = 1000 };
@@ -47,7 +49,7 @@ namespace DuckSQL.Controls
             DrawMode = TabDrawMode.OwnerDrawFixed;
             _rightClickTabContextMenuStrip.Items.AddRange(
                 [_closeTabToolStripMenuItem, _closeOtherTabsToolStripMenuItem, _closeAllTabsToolStripMenuItem,
-                firstToolStripSeparator, _openQueryLocationToolStripMenuItem]);
+                _firstToolStripSeparator, _openQueryLocationToolStripMenuItem]);
             _closeTabToolStripMenuItem.Click += closeTabToolStripMenuItem_Click;
             _closeOtherTabsToolStripMenuItem.Click += closeOtherTabsToolStripMenuItem_Click;
             _closeAllTabsToolStripMenuItem.Click += closeAllTabsToolStripMenuItem_Click;
@@ -231,11 +233,11 @@ namespace DuckSQL.Controls
                 {
                     _rightClickedTabIndex = tabIndex.Value;
 
-                    firstToolStripSeparator.Visible = false;
+                    _firstToolStripSeparator.Visible = false;
                     _openQueryLocationToolStripMenuItem.Visible = false;
                     if (TabPages[_rightClickedTabIndex] is CustomTabPage ctp && ctp.IsFileBackedTab)
                     {
-                        firstToolStripSeparator.Visible = true;
+                        _firstToolStripSeparator.Visible = true;
                         _openQueryLocationToolStripMenuItem.Visible = true;
                     }
 
@@ -333,7 +335,7 @@ namespace DuckSQL.Controls
             }
             SelectedIndex = tabIndex;
 
-            //Only replace the empty tab if we actually opened something new, rather than just switching to an open file
+            //Only replace the empty tab if we actually opened something new and didn't switch to an open file
             if (emptyLastTab is not null && TabCount > tabCountBefore)
                 TabPages.Remove(emptyLastTab);
         }
@@ -407,8 +409,8 @@ namespace DuckSQL.Controls
         {
             //Check if there are any dirty tabs being closed
             var dirtyTabCount = tabIndexes.Count(i => ((CustomTabPage)TabPages[i]).IsDirty);
-            if (dirtyTabCount > 0 && MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1 ? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            if (dirtyTabCount > 0 && MessageBox.Show(Resources.Strings.CloseDirtyTabsWarningMessageFormat.Format(dirtyTabCount),
+                    Resources.Strings.UnsavedChangesWarningTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return false;
             }
@@ -417,7 +419,7 @@ namespace DuckSQL.Controls
             foreach (var tabIndex in tabIndexes.OrderByDescending(i => i))
             {
                 if (tabIndex < 0 || tabIndex >= TabCount)
-                    throw new ArgumentOutOfRangeException(nameof(tabIndex));
+                    throw new ArgumentOutOfRangeException(nameof(tabIndexes));
 
                 //Check if there's anything left to close
                 if (TabCount == 1 && IsEmptyQueryEditor(0))
@@ -480,6 +482,12 @@ namespace DuckSQL.Controls
             tab.QueryExecutionStarted += (s, args) => QueryExecutionStarted?.Invoke(s, args);
             tab.DragDrop += (s, args) => OnDragDrop(args);
             TabPages.Add(tab);
+        }
+
+        protected override void OnControlRemoved(ControlEventArgs e)
+        {
+            base.OnControlRemoved(e);
+            e.Control?.Dispose(); //Dispose any removed tabs to free resources
         }
 
         private void closeTabToolStripMenuItem_Click(object? sender, EventArgs e)
