@@ -32,7 +32,7 @@ namespace DuckSQL.Controls
         private int _lastCacheHashCode = 0;
         private string _cachePath = CacheFilePath;
 
-        public record RestoredSession(CustomTabPage[] Tabs, CustomTabPage? SelectedTab, int NewQueryCount);
+        public record RestoredSession(CustomTabPage[] Tabs, CustomTabPage? SelectedTab);
 
         /// <summary>
         /// Reads the most recently written cache file.
@@ -65,7 +65,7 @@ namespace DuckSQL.Controls
                     selectedTab = tabs[i];
             }
 
-            return new RestoredSession(tabs, selectedTab, cacheDetails.NewQueryCount);
+            return new RestoredSession(tabs, selectedTab);
 
             static string? GetNewestExistingFile(params string[] paths)
                 => paths.Where(File.Exists).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
@@ -76,7 +76,7 @@ namespace DuckSQL.Controls
         /// </summary>
         /// <param name="force">Write even if nothing changed since the last save</param>
         /// <remarks>This is synchronous on purpose to guarantee completion on application shutdown.</remarks>
-        public void Save(IEnumerable<CustomTabPage> tabs, CustomTabPage? selectedTab, int newQueryCount, bool force)
+        public void Save(IEnumerable<CustomTabPage> tabs, CustomTabPage? selectedTab, bool force)
         {
             if (IsDisabled)
                 return;
@@ -105,7 +105,7 @@ namespace DuckSQL.Controls
 
                 if (force || _lastCacheHashCode != tabCacheHashCode)
                 {
-                    var cacheDetails = new TabControlCacheRecord(newQueryCount, cacheRecords.ToArray());
+                    var cacheDetails = new TabControlCacheRecord(cacheRecords.ToArray());
 
                     Directory.CreateDirectory(CacheDirectory); //no-op if it already exists
 
@@ -127,7 +127,7 @@ namespace DuckSQL.Controls
             }
         }
 
-        private record TabControlCacheRecord(int NewQueryCount, TabPageCacheRecord[] Records);
+        private record TabControlCacheRecord(TabPageCacheRecord[] Records); //Older versions also stored a NewQueryCount, which is now ignored
         private record TabPageCacheRecord(CustomTabPage.TabKind Kind, string? FilePath, int ScratchNumber, string? Text, bool IsSelectedTab,
             string? Tag = null, string? Title = null) //Tag & Title are only used to read caches from older versions
         {

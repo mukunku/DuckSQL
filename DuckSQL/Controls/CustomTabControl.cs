@@ -79,7 +79,12 @@ namespace DuckSQL.Controls
                 if (session.SelectedTab is not null)
                     SelectedTab = session.SelectedTab;
 
-                _newQueryCount = session.NewQueryCount;
+                //Continue numbering after the highest "New query N" that's actually open, instead of wherever the last session's counter got to
+                _newQueryCount = session.Tabs
+                    .Where(tab => !tab.IsFileBackedTab)
+                    .Select(tab => tab.ScratchNumber)
+                    .DefaultIfEmpty(0)
+                    .Max();
 
                 TabPages.RemoveAt(0); //Remove the default empty query tab
             }
@@ -597,7 +602,7 @@ namespace DuckSQL.Controls
         }
 
         private void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
-            => _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, _newQueryCount, force: false);
+            => _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, force: false);
 
         /// <summary>
         /// Saves the session one last time and stops the periodic saving. Call when the app is closing.
@@ -606,7 +611,7 @@ namespace DuckSQL.Controls
         public void SaveSessionCacheAndStopSession()
         {
             _cacheOpenTabsTimer.Stop();
-            _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, _newQueryCount, force: true);
+            _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, force: true);
         }
     }
 }
