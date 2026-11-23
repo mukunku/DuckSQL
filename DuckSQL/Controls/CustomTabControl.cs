@@ -552,6 +552,7 @@ namespace DuckSQL.Controls
                 return;
             }
             TabPages[targetTabIndex] = tabToBeMoved;
+            Controls.SetChildIndex(tabToBeMoved, targetTabIndex); //keep Controls in the same order as TabPages, or RemoveAt(index) removes the wrong tab
             SelectedTab = tabToBeMoved;
             Refresh();
         }
