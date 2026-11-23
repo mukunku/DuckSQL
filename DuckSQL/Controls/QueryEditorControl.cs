@@ -117,11 +117,6 @@ OFFSET {3} ";
             {
                 throw;
             }
-            catch (Exception ex) when (cancellationToken.IsCancellationRequested && ex is DuckDBException)
-            {
-                //Supposedly this is the error DuckDB throws when the command is cancelled but I haven't been able to re-create it.
-                throw new OperationCanceledException();
-            }
             catch (Exception ex)
             {
                 result.Dispose();
@@ -192,6 +187,7 @@ OFFSET {3} ";
             {
                 if (_queryCancellationToken.IsCancellationRequested)
                 {
+                    //Return without waiting for the queryTask to cancel to improve responsiveness
                     return;
                 }
 
