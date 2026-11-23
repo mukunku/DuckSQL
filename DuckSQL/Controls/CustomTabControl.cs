@@ -3,7 +3,6 @@ using DuckSQL.Exceptions;
 using DuckSQL.Helpers;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Text.Json;
 
 namespace DuckSQL.Controls
 {
@@ -40,13 +39,7 @@ namespace DuckSQL.Controls
 
         #region Session Caching
         private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = true, Interval = 1000 };
-        private int _lastCacheHashCode = 0;
-        private string _cachePath = CacheFilePath;
-
-        private const string CACHE_FILE_NAME = "DUCKSQL_QUERY_CACHE.json";
-        private const string CACHE_BACKUP_FILE_NAME = "DUCKSQL_QUERY_BACKUP_CACHE.json";
-        private static string CacheFilePath => Path.Combine(Path.GetTempPath(), CACHE_FILE_NAME);
-        private static string CacheBackupFilePath => Path.Combine(Path.GetTempPath(), CACHE_BACKUP_FILE_NAME);
+        private readonly SessionCache _sessionCache = new();
         #endregion
 
         public CustomTabControl()
@@ -71,40 +64,19 @@ namespace DuckSQL.Controls
                 if (TabPages.Count != 1)
                     throw new InvalidOperationException("Session can only be resumed on startup");
 
-                var mainCacheFileLastWriteTime = File.Exists(CacheFilePath) ? File.GetLastWriteTime(CacheFilePath) : DateTime.MinValue;
-                var backupCacheFileLastWriteTime = File.Exists(CacheBackupFilePath) ? File.GetLastWriteTime(CacheBackupFilePath) : DateTime.MinValue;
-
-                if (mainCacheFileLastWriteTime == DateTime.MinValue && backupCacheFileLastWriteTime == DateTime.MinValue)
+                var session = _sessionCache.Load();
+                if (session is null)
                     return; //nothing to restore
 
-                string cacheFileToUsePath;
-                if (mainCacheFileLastWriteTime > backupCacheFileLastWriteTime)
-                    cacheFileToUsePath = CacheFilePath;
-                else
-                    cacheFileToUsePath = CacheBackupFilePath;
-
-                var cacheDetails = JsonSerializer.Deserialize<TabControlCacheRecord>(File.ReadAllText(cacheFileToUsePath));
-
-                if (cacheDetails is null)
-                    return;
-
-                var recordsToRestore = cacheDetails.Records.Where(record => !record.IsEmptyQueryTab).ToArray();
-                if (recordsToRestore.Length == 0)
-                    return; //Only empty query tabs, nothing to restore
-
-                TabPage? selectedTab = null;
-                foreach (var cachedTab in recordsToRestore)
+                foreach (var tab in session.Tabs)
                 {
-                    var restoredTab = cachedTab.ToTabPage();
-                    AddTab(restoredTab);
-                    if (cachedTab.IsSelectedTab)
-                        selectedTab = restoredTab;
+                    AddTab(tab);
                 }
 
-                if (selectedTab is not null)
-                    SelectedTab = selectedTab;
+                if (session.SelectedTab is not null)
+                    SelectedTab = session.SelectedTab;
 
-                _newQueryCount = cacheDetails.NewQueryCount;
+                _newQueryCount = session.NewQueryCount;
 
                 TabPages.RemoveAt(0); //Remove the default empty query tab
             }
@@ -576,97 +548,17 @@ namespace DuckSQL.Controls
             Refresh();
         }
 
-        private void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e) => SaveSessionCache(force: false);
-
-        /// <summary>
-        /// Writes the open tabs to the session cache so they can be restored on the next launch.
-        /// </summary>
-        /// <param name="force">Write even if nothing changed since the last save</param>
-        /// <remarks>This is synchronous on purpose to guarantee completion on application shutdown.
-        /// Also because it is synchronous we don't need to stop and start the timer each execution.</remarks>
-        private void SaveSessionCache(bool force)
-        {
-            try
-            {
-                var cacheRecords = new List<TabPageCacheRecord>();
-                foreach (var page in TabPages.OfType<CustomTabPage>())
-                {
-                    var text = page.CurrentText;
-                    if (!page.IsFileBackedTab && string.IsNullOrWhiteSpace(text))
-                        continue; //nothing worth restoring in empty scratch tabs
-
-                    //Clean file backed tabs get reloaded from disk, so only keep their text when there are unsaved edits
-                    var textToCache = page.IsFileBackedTab && !page.IsDirty ? null : text;
-                    cacheRecords.Add(new(page.Kind, page.FilePath, page.ScratchNumber, textToCache, SelectedTab == page));
-                }
-
-                //Check if anything changed, including the currently selected tab
-                var tabCacheHash = new HashCode();
-                tabCacheHash.Add(SelectedIndex);
-
-                foreach (var cacheRecord in cacheRecords)
-                {
-                    tabCacheHash.Add(cacheRecord);
-                }
-                var tabCacheHashCode = tabCacheHash.ToHashCode();
-
-                if (force || _lastCacheHashCode != tabCacheHashCode)
-                {
-                    var cacheDetails = new TabControlCacheRecord(_newQueryCount, cacheRecords.ToArray());
-                    File.WriteAllText(_cachePath, JsonSerializer.Serialize(cacheDetails));
-                    _lastCacheHashCode = tabCacheHashCode; //only after a successful write, so failed writes get retried
-                }
-            }
-            catch
-            {
-                //Alternate between the main cache file and the backup one to help
-                //deal with any kind of weirdness and reduce the chance of data loss
-                if (_cachePath.Equals(CacheFilePath))
-                    _cachePath = CacheBackupFilePath;
-                else
-                    _cachePath = CacheFilePath;
-            }
-        }
+        private void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
+            => _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, _newQueryCount, force: false);
 
         /// <summary>
         /// Saves the session one last time and stops the periodic saving. Call when the app is closing.
         /// </summary>
+        /// <remarks>Saving is synchronous, so we don't need to stop and start the timer on each tick.</remarks>
         public void SaveSessionCacheAndStopSession()
         {
             _cacheOpenTabsTimer.Stop();
-            SaveSessionCache(force: true);
-        }
-
-        private record TabControlCacheRecord(int NewQueryCount, TabPageCacheRecord[] Records);
-        private record TabPageCacheRecord(CustomTabPage.TabKind Kind, string? FilePath, int ScratchNumber, string? Text, bool IsSelectedTab,
-            string? Tag = null, string? Title = null) //Tag & Title are only used to read caches from older versions
-        {
-            //Legacy records stored file paths in Tag, which are never blank, so a blank Tag means an empty query tab
-            public bool IsEmptyQueryTab => Tag is not null
-                ? string.IsNullOrWhiteSpace(Tag)
-                : Kind == CustomTabPage.TabKind.Scratch && string.IsNullOrWhiteSpace(Text);
-
-            public CustomTabPage ToTabPage()
-            {
-                if (Tag is not null && Title is not null)
-                    return FromLegacyRecord(Tag, Title);
-
-                return Kind == CustomTabPage.TabKind.SqlFile && FilePath is not null
-                    ? CustomTabPage.ForSqlFile(FilePath, Text)
-                    : CustomTabPage.ForScratch(ScratchNumber, Text);
-            }
-
-            //Old caches stored either a file path or query text in Tag, and the tab title in Title
-            private static CustomTabPage FromLegacyRecord(string tag, string title)
-            {
-                if (File.Exists(tag) && UtilityMethods.IsSqlFile(tag))
-                    return CustomTabPage.ForSqlFile(tag);
-
-                var scratchNumber = int.TryParse(title.Trim(' ', '*').Split(' ').Last(), out var number) ? number : 1;
-                return File.Exists(tag) || Directory.Exists(tag)
-                    ? CustomTabPage.ForDataSource(scratchNumber, tag)
-                    : CustomTabPage.ForScratch(scratchNumber, tag);
-            }
+            _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, _newQueryCount, force: true);
         }
     }
 }
