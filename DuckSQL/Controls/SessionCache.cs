@@ -13,6 +13,10 @@ namespace DuckSQL.Controls
         private static string CacheFilePath => Path.Combine(Path.GetTempPath(), CACHE_FILE_NAME);
         private static string CacheBackupFilePath => Path.Combine(Path.GetTempPath(), CACHE_BACKUP_FILE_NAME);
 
+        //If user is running a second or more instance of DuckSQL.exe, to prevent session cache collisions,
+        //only respect the session of the first, "primary", instance.
+        private static bool IsDisabled => !Env.IsPrimaryInstance();
+
         private int _lastCacheHashCode = 0;
         private string _cachePath = CacheFilePath;
 
@@ -24,6 +28,9 @@ namespace DuckSQL.Controls
         /// <returns>null if there's nothing worth restoring</returns>
         public RestoredSession? Load()
         {
+            if (IsDisabled)
+                return null;
+
             var mainCacheFileLastWriteTime = File.Exists(CacheFilePath) ? File.GetLastWriteTime(CacheFilePath) : DateTime.MinValue;
             var backupCacheFileLastWriteTime = File.Exists(CacheBackupFilePath) ? File.GetLastWriteTime(CacheBackupFilePath) : DateTime.MinValue;
 
@@ -58,6 +65,9 @@ namespace DuckSQL.Controls
         /// <remarks>This is synchronous on purpose to guarantee completion on application shutdown.</remarks>
         public void Save(IEnumerable<CustomTabPage> tabs, CustomTabPage? selectedTab, int newQueryCount, bool force)
         {
+            if (IsDisabled)
+                return;
+
             try
             {
                 var cacheRecords = new List<TabPageCacheRecord>();

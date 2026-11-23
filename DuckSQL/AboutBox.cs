@@ -19,7 +19,7 @@ namespace DuckSQL
 
             if (!AmplitudeEvent.HasApiKey)
             {
-                this.textBoxDescription.Text = $"No Amplitude API Key!{Environment.NewLine}{Environment.NewLine}"
+                this.textBoxDescription.Text = $"No Amplitude API Key!{Env.DoubleNewLine}"
                     + this.textBoxDescription.Text;
             }
         }

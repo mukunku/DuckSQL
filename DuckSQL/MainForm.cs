@@ -22,6 +22,13 @@ namespace DuckSQL
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            Env.TryClaimPrimaryInstance(); // Released in OnFormClosing.
+
+            //If this isn't the "primary" instance its tabs won't be sessioncache'd.
+            //We signify this to the user by adding a suffix in the app title.
+            if (!Env.IsPrimaryInstance())
+                Text += " [NO SESSION]";
+
             tabControl1.TabPages.Clear();
             tabControl1.NewQuery();
             tabControl1.QueryExecuted += QueryExecutedEventHandler;
@@ -250,6 +257,11 @@ namespace DuckSQL
                 tabControl1.NewQuery();
                 e.Handled = true;
             }
+            else if (e.Control && e.KeyCode == Keys.R)
+            {
+                e.Handled = true;
+                UtilityMethods.RestartApplication();
+            }
         }
 
         //Source: https://stackoverflow.com/a/25648710/1458738
@@ -273,6 +285,7 @@ namespace DuckSQL
                 return;
 
             tabControl1.SaveSessionCacheAndStopSession();
+            Env.TryReleasePrimaryInstance(); // Counterpart of ClaimPrimaryInstance in MainForm_Load
         }
 
         private async Task ExportResultsAsync(FileType defaultFileType, string? filePathWithExtension = null)

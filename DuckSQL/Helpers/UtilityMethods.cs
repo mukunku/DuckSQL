@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
@@ -112,14 +113,20 @@ namespace DuckSQL.Helpers
         /// </summary>
         public static void RestartApplication()
         {
-            //Start a new DuckSQL instance
-            ProcessStartInfo startInfo = new ();
-            startInfo.UseShellExecute = true; // Do not wait - make the process standalone
-            startInfo.FileName = Application.ExecutablePath;
-            Process.Start(startInfo);
+            //Terminate this instance first. This synchronously runs MainForm.OnFormClosing, which does the
+            //final session save and releases the primary instance mutex before the new instance starts.
+            var exitArgs = new CancelEventArgs();
+            Application.Exit(exitArgs);
+            if (exitArgs.Cancel)
+                return; //A form refused to close
 
-            //Terminate this instance
-            Application.Exit();
+            //Start a new DuckSQL instance. Yes this code will also run even though we exited above :P
+            ProcessStartInfo startInfo = new()
+            {
+                UseShellExecute = true, // Do not wait - make the process standalone
+                FileName = Application.ExecutablePath
+            };
+            Process.Start(startInfo);
         }
 
         /// <summary>
