@@ -314,6 +314,6 @@
     <value>Kaydet</value>
   </data>
   <data name="$this.Text" xml:space="preserve">
-    <value>ParquetViewer - Tarih Formatı Ayarı</value>
+    <value>DuckSQL - Tarih Formatı Ayarı</value>
   </data>
 </root>

@@ -66,8 +66,6 @@ namespace DuckSQL
 
         private async void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            tabControl1.SaveSessionCacheAndStopSession();
-
             var eventTask = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit }.Record();
             var timeout = Task.Delay(200);
             
@@ -264,6 +262,17 @@ namespace DuckSQL
                 handleParam.ExStyle |= 0x02000000;   // WS_EX_COMPOSITED       
                 return handleParam;
             }
+        }
+
+        //Every way of closing the app ends up here (X button, Alt+F4, File > Exit, restarts, Windows shutdown)
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+
+            if (e.Cancel)
+                return;
+
+            tabControl1.SaveSessionCacheAndStopSession();
         }
 
         private async Task ExportResultsAsync(FileType defaultFileType, string? filePathWithExtension = null)

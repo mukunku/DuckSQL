@@ -252,7 +252,7 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Restart ParquetViewer?.
+        ///   Looks up a localized string similar to Restart DuckSQL?.
         /// </summary>
         internal static string LanguageChangeConfirmationTitle {
             get {

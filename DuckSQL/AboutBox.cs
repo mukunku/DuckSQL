@@ -91,7 +91,7 @@ namespace DuckSQL
                         return titleAttribute.Title;
                     }
                 }
-                return "ParquetViewer.exe";
+                return "DuckSQL.exe";
             }
         }
 

@@ -112,7 +112,7 @@ namespace DuckSQL.Helpers
         /// </summary>
         public static void RestartApplication()
         {
-            //Start a new ParquetViewer instance
+            //Start a new DuckSQL instance
             ProcessStartInfo startInfo = new ();
             startInfo.UseShellExecute = true; // Do not wait - make the process standalone
             startInfo.FileName = Application.ExecutablePath;

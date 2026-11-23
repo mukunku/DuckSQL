@@ -174,7 +174,7 @@
     <comment>Shown when the user clicks on a different UI language from the help menu</comment>
   </data>
   <data name="LanguageChangeConfirmationTitle" xml:space="preserve">
-    <value>Restart ParquetViewer?</value>
+    <value>Restart DuckSQL?</value>
     <comment>Shown when the user clicks on a different UI language from the help menu</comment>
   </data>
   <data name="NewQueryTabTitle" xml:space="preserve">

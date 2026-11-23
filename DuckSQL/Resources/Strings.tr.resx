@@ -160,7 +160,7 @@
     <value>Dili değiştirmek için uygulamanın yeniden başlatılmasi gerekiyor. Devam etmek ister misiniz?</value>
   </data>
   <data name="LanguageChangeConfirmationTitle" xml:space="preserve">
-    <value>ParquetViewer'ı yeniden başlat?</value>
+    <value>DuckSQL'i yeniden başlat?</value>
   </data>
   <data name="NewQueryTabTitle" xml:space="preserve">
     <value>Yeni sorgu</value>

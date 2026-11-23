@@ -579,9 +579,16 @@ namespace DuckSQL.Controls
             Refresh();
         }
 
-        private async void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
+        private void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e) => SaveSessionCache(force: false);
+
+        /// <summary>
+        /// Writes the open tabs to the session cache so they can be restored on the next launch.
+        /// </summary>
+        /// <param name="force">Write even if nothing changed since the last save</param>
+        /// <remarks>This is synchronous on purpose to guarantee completion on application shutdown.
+        /// Also because it is synchronous we don't need to stop and start the timer each execution.</remarks>
+        private void SaveSessionCache(bool force)
         {
-            _cacheOpenTabsTimer.Stop();
             try
             {
                 var cacheRecords = new List<TabPageCacheRecord>();
@@ -606,13 +613,11 @@ namespace DuckSQL.Controls
                 }
                 var tabCacheHashCode = tabCacheHash.ToHashCode();
 
-                if (_lastCacheHashCode != tabCacheHashCode)
+                if (force || _lastCacheHashCode != tabCacheHashCode)
                 {
-                    _lastCacheHashCode = tabCacheHashCode;
-                    var timeoutToken = new CancellationTokenSource(3000);
-
                     var cacheDetails = new TabControlCacheRecord(_newQueryCount, cacheRecords.ToArray());
-                    await File.WriteAllTextAsync(_cachePath, JsonSerializer.Serialize(cacheDetails), timeoutToken.Token);
+                    File.WriteAllText(_cachePath, JsonSerializer.Serialize(cacheDetails));
+                    _lastCacheHashCode = tabCacheHashCode; //only after a successful write, so failed writes get retried
                 }
             }
             catch
@@ -624,16 +629,15 @@ namespace DuckSQL.Controls
                 else
                     _cachePath = CacheFilePath;
             }
-            finally
-            {
-                _cacheOpenTabsTimer.Start();
-            }
         }
 
+        /// <summary>
+        /// Saves the session one last time and stops the periodic saving. Call when the app is closing.
+        /// </summary>
         public void SaveSessionCacheAndStopSession()
         {
-            this._cacheOpenTabsTimer.Stop();
-            _cacheOpenTabsTimer_Tick(null, EventArgs.Empty);
+            _cacheOpenTabsTimer.Stop();
+            SaveSessionCache(force: true);
         }
 
         private record TabControlCacheRecord(int NewQueryCount, TabPageCacheRecord[] Records);

@@ -288,7 +288,7 @@
     <value>Fill</value>
   </data>
   <data name="&gt;&gt;$this.Type" xml:space="preserve">
-    <value>ParquetViewer.Controls.FormBase, ParquetViewer, Culture=neutral, PublicKeyToken=null</value>
+    <value>System.Windows.Forms.Form, System.Windows.Forms, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="&gt;&gt;mainTableLayoutPanel.Parent" xml:space="preserve">
     <value>$this</value>
@@ -357,7 +357,7 @@
     <value>262, 4</value>
   </data>
   <data name="&gt;&gt;mainGridView.Type" xml:space="preserve">
-    <value>ParquetViewer.Controls.ParquetGridView, ParquetViewer, Culture=neutral, PublicKeyToken=null</value>
+    <value>DuckSQL.Controls.ParquetGridView, DuckSQL, Culture=neutral, PublicKeyToken=null</value>
   </data>
   <data name="mainGridView.Size" type="System.Drawing.Size, System.Drawing">
     <value>208, 214</value>
