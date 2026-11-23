@@ -84,18 +84,18 @@ namespace DuckSQL.Controls
 
                 var cacheDetails = JsonSerializer.Deserialize<TabControlCacheRecord>(File.ReadAllText(cacheFileToUsePath));
 
-                if (cacheDetails is null || cacheDetails.Records.Length == 0)
+                if (cacheDetails is null)
                     return;
 
-                if (cacheDetails.Records.Length == 1 && cacheDetails.Records[0].Title.StartsWith(Resources.Strings.NewQueryTabTitle)
-                    && string.IsNullOrWhiteSpace(cacheDetails.Records[0].Tag))
-                    return; //Only one empty query tab, nothing to restore
+                var recordsToRestore = cacheDetails.Records.Where(record => !record.IsEmptyQueryTab).ToArray();
+                if (recordsToRestore.Length == 0)
+                    return; //Only empty query tabs, nothing to restore
 
                 TabPage? selectedTab = null;
-                foreach (var cachedTab in cacheDetails.Records)
+                foreach (var cachedTab in recordsToRestore)
                 {
-                    var filePathOrQueryText = cachedTab.Tag;
-                    var restoredTab = RestoreTab(cachedTab.Title, filePathOrQueryText);
+                    var restoredTab = cachedTab.ToTabPage();
+                    AddTab(restoredTab);
                     if (cachedTab.IsSelectedTab)
                         selectedTab = restoredTab;
                 }
@@ -184,21 +184,6 @@ namespace DuckSQL.Controls
             if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null)
             {
                 DoDragDrop(TabPages[_dragStartTabIndex.Value], DragDropEffects.Move);
-            }
-            #endregion
-
-            #region File path tooltip
-            if (tabIndex is not null)
-            {
-                var hoveredTab = (CustomTabPage)TabPages[tabIndex.Value];
-                if (hoveredTab.IsFileBackedTab && tabIndex is not null && closeButtonHoveredTabIndex is null)
-                {
-                    var filePath = hoveredTab.Tag as string;
-                    if (!string.IsNullOrWhiteSpace(filePath)) //just for extra safety
-                    {
-                        hoveredTab.ToolTipText = filePath;
-                    }
-                }
             }
             #endregion
         }
@@ -337,34 +322,74 @@ namespace DuckSQL.Controls
             );
         }
 
-        public int CreateNewTab(string? queryTextOrFilePath = null, bool skipTabCountIncrement = false)
+        /// <summary>
+        /// Switches to an existing empty query tab, or creates a new one if there isn't one.
+        /// </summary>
+        public void NewQuery()
+        {
+            for (var i = 0; i < TabCount; i++)
+            {
+                if (IsEmptyQueryEditor(i))
+                {
+                    SelectedIndex = i;
+                    return;
+                }
+            }
+
+            SelectedIndex = CreateTab();
+        }
+
+        /// <summary>
+        /// Opens each path in its own tab and selects the last one. Already open .sql files are switched to instead.
+        /// </summary>
+        /// <param name="paths">.sql files to open, or data files/folders to generate a SELECT query for</param>
+        public void OpenFilesOrFolders(params string[] paths)
+        {
+            if (paths.Length == 0)
+                return;
+
+            //An empty query tab at the end gets replaced by the opened files, so the first new query tab can reuse its name
+            var emptyLastTab = TabCount > 0 && IsEmptyQueryEditor(TabCount - 1) ? (CustomTabPage)TabPages[TabCount - 1] : null;
+            var tabCountBefore = TabCount;
+
+            var tabIndex = -1;
+            for (var i = 0; i < paths.Length; i++)
+            {
+                var scratchNumber = i == 0 ? emptyLastTab?.ScratchNumber : null;
+                tabIndex = CreateTab(paths[i], scratchNumber);
+            }
+            SelectedIndex = tabIndex;
+
+            //Only replace the empty tab if we actually opened something new, rather than just switching to an open file
+            if (emptyLastTab is not null && TabCount > tabCountBefore)
+                TabPages.Remove(emptyLastTab);
+        }
+
+        /// <param name="filePath">A .sql file to open, or a data file/folder to generate a SELECT query for</param>
+        /// <param name="scratchNumber">Number to use in the "New query N" title. Defaults to the next number.</param>
+        /// <returns>The index of the new tab, or of the existing tab if the .sql file is already open</returns>
+        private int CreateTab(string? filePath = null, int? scratchNumber = null)
         {
             var hasNoTabs = TabCount == 0;
 
-            var tabName = Resources.Strings.NewQueryTabTitle;
-            var isFileBackedTab = false;
-
-            try
+            CustomTabPage newTab;
+            if (File.Exists(filePath) && Path.GetExtension(filePath).Equals(".sql"))
             {
-                //Not sure if try..catch is required here, adding it for safety.
-                if (File.Exists(queryTextOrFilePath) && Path.GetExtension(queryTextOrFilePath)?.Equals(".sql") == true)
-                {
-                    tabName = Path.GetFileName(queryTextOrFilePath);
-                    isFileBackedTab = true;
-                    skipTabCountIncrement = true;
-                }
+                //Don't open the same file twice, return the existing tab instead
+                var existingTab = TabPages.OfType<CustomTabPage>()
+                    .FirstOrDefault(tab => string.Equals(tab.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+                if (existingTab is not null)
+                    return TabPages.IndexOf(existingTab);
+
+                newTab = CustomTabPage.ForSqlFile(filePath);
             }
-            catch { /*swallow*/ }
-
-            if (!skipTabCountIncrement)
-                _newQueryCount++;
-
-            if (_newQueryCount > 1 && !isFileBackedTab)
+            else
             {
-                tabName += $" {_newQueryCount}";
+                var queryText = filePath is null ? null : QueryEditorControl.BuildSelectQuery(filePath);
+                newTab = CustomTabPage.ForScratch(scratchNumber ?? ++_newQueryCount, queryText);
             }
 
-            CreateNewTabInternal(tabName, queryTextOrFilePath);
+            AddTab(newTab);
 
             if (hasNoTabs)
             {
@@ -374,52 +399,18 @@ namespace DuckSQL.Controls
             return TabCount - 1;
         }
 
-        public CustomTabPage RestoreTab(string title, string tag) => CreateNewTabInternal(title, tag);
-
-        private CustomTabPage CreateNewTabInternal(string title, string? tag)
-        {
-            var newTab = new CustomTabPage();
-            newTab.Text = title;
-            newTab.Tag = tag;
-            TabPages.Add(newTab);
-
-            return newTab;
-        }
-
         public CustomTabPage GetSelectedTab() => (CustomTabPage)(SelectedTab ?? throw new InvalidOperationException("No selected tab found"));
 
-        public int? FindEmptyQueryEditorTabIndex()
-        {
-            for (var i = 0; i < TabCount; i++)
-            {
-                if (IsEmptyQueryEditor(i))
-                {
-                    return i;
-                }
-            }
-            return null;
-        }
-
         /// <summary>
-        /// Checks if the query editor is "empty". 
-        /// Meaning it has our <see cref="Resources.Strings.NewQueryTabTitle"/> title, no file path, and no query text.
+        /// Checks if the query editor is "empty". Meaning it's a scratch tab with no query text.
         /// </summary>
-        /// <returns></returns>
-        public bool IsEmptyQueryEditor(int tabIndex)
+        private bool IsEmptyQueryEditor(int tabIndex)
         {
             if (tabIndex >= TabCount)
                 throw new ArgumentOutOfRangeException(nameof(tabIndex));
 
             var tab = (CustomTabPage)TabPages[tabIndex];
-            if (tab.Controls.Count == 0 || tab.Controls[0] is not QueryEditorControl queryEditor)
-            {
-                return tab.Tag is null; //Tag won't be null for empty query editors
-            }
-
-            var hasQueryText = !string.IsNullOrWhiteSpace(queryEditor.QueryText);
-            var hasFilePath = !string.IsNullOrWhiteSpace(queryEditor.CurrentFilePath);
-
-            return tab.HasNewQueryTitle && !hasQueryText && !hasFilePath;
+            return !tab.IsFileBackedTab && string.IsNullOrWhiteSpace(tab.CurrentText);
         }
 
         protected override void OnSelectedIndexChanged(EventArgs e)
@@ -429,48 +420,20 @@ namespace DuckSQL.Controls
             if (SelectedTab is not CustomTabPage selectedTab)
                 return;
 
-            if (selectedTab.Controls.Count == 0)
-            {
-                //Lazily initialize the query editor
-                QueryEditorControl queryEditor;
-                var filePathOrQueryText = selectedTab.Tag?.ToString();
-                if (!string.IsNullOrWhiteSpace(filePathOrQueryText))
-                {
-                    if (File.Exists(filePathOrQueryText) || Directory.Exists(filePathOrQueryText))
-                    {
-                        queryEditor = new QueryEditorControl(filePathOrQueryText) { Dock = DockStyle.Fill };
-                    }
-                    else
-                    {
-                        queryEditor = new()
-                        {
-                            Dock = DockStyle.Fill,
-                            QueryText = filePathOrQueryText
-                        };
-                    }
-                }
-                else
-                {
-                    queryEditor = new QueryEditorControl { Dock = DockStyle.Fill };
-                }
-
-                AttachEventHandlers(queryEditor, selectedTab);
-                selectedTab.Controls.Add(queryEditor);
-                queryEditor.Focus();
-            }
-            else
-            {
-                var queryEditor = (QueryEditorControl)SelectedTab.Controls[0];
+            //New editors refresh themselves on Load, so only existing ones need it (e.g. to pick up setting changes)
+            var isExistingEditor = selectedTab.HasQueryEditor();
+            var queryEditor = selectedTab.GetOrCreateQueryEditor();
+            if (isExistingEditor)
                 queryEditor.RefreshControl();
-                queryEditor.Focus();
-            }
+
+            queryEditor.Focus();
         }
 
         //Returns false if the user cancels closing dirty tabs, true otherwise
         public bool CloseTabs(int[] tabIndexes)
         {
             //Check if there are any dirty tabs being closed
-            var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*')); //file paths can't have '*' in them in Windows so this check should work fine
+            var dirtyTabCount = tabIndexes.Count(i => ((CustomTabPage)TabPages[i]).IsDirty);
             if (dirtyTabCount > 0 && MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1 ? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
@@ -494,7 +457,7 @@ namespace DuckSQL.Controls
 
             if (TabCount == 0)
             {
-                CreateNewTab();
+                CreateTab();
             }
 
             //Last tab should be focused
@@ -516,7 +479,7 @@ namespace DuckSQL.Controls
                 return;
             }
 
-            var isDirty = TabPages[tabIndex].Text.Contains('*');
+            var isDirty = ((CustomTabPage)TabPages[tabIndex]).IsDirty;
             if (isDirty && MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
@@ -527,7 +490,7 @@ namespace DuckSQL.Controls
 
             if (TabCount == 0)
             {
-                CreateNewTab();
+                CreateTab();
             }
 
             //Last tab should be focused
@@ -536,51 +499,18 @@ namespace DuckSQL.Controls
             Invalidate();
         }
 
-        private void AttachEventHandlers(QueryEditorControl queryEditor, CustomTabPage tab)
+        //All tabs must be added through here so their events get relayed
+        private void AddTab(CustomTabPage tab)
         {
-            //Handle new tab title styling
-            queryEditor.QueryTextChanged += (s, args) =>
+            tab.DirtyStateChanged += (s, args) =>
             {
-                var hasModifiedIndicator = tab.Text.Trim().EndsWith('*');
-
-                if (tab.IsFileBackedTab)
-                {
-                    //This is a file backed tab. Any changes should make the tab dirty
-                    if (!hasModifiedIndicator)
-                    {
-                        tab.Text = tab.Text.Trim() + " *";
-                        Invalidate();
-                        TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-                    }
-                    return;
-                }
-
-                var isEmpty = string.IsNullOrWhiteSpace(queryEditor.QueryText);
-                if (hasModifiedIndicator && isEmpty)
-                {
-                    tab.Text = tab.Text.Replace("*", string.Empty).Trim();
-                    Invalidate();
-                    TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-                }
-                else if (!hasModifiedIndicator && !isEmpty)
-                {
-                    tab.Text = tab.Text.Trim() + " *";
-                    Invalidate();
-                    TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-                }
+                Invalidate(); //Force a redraw to show the new state
+                TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
             };
-            queryEditor.QueryExecuted += (s, args) =>
-            {
-                QueryExecuted?.Invoke(s, args);
-            };
-            queryEditor.QueryExecutionStarted += (s, args) =>
-            {
-                QueryExecutionStarted?.Invoke(s, args);
-            };
-            queryEditor.DragDrop += (s, args) =>
-            {
-                OnDragDrop(args);
-            };
+            tab.QueryExecuted += (s, args) => QueryExecuted?.Invoke(s, args);
+            tab.QueryExecutionStarted += (s, args) => QueryExecutionStarted?.Invoke(s, args);
+            tab.DragDrop += (s, args) => OnDragDrop(args);
+            TabPages.Add(tab);
         }
 
         private void closeTabToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -615,7 +545,7 @@ namespace DuckSQL.Controls
         private void openQueryLocationToolStripMenuItem_Click(object? sender, EventArgs e)
         {
             if (TabPages[_rightClickedTabIndex] is CustomTabPage ctp
-                    && ctp.Tag is string path
+                    && ctp.FilePath is string path
                     && Path.Exists(path)
                     && Path.GetDirectoryName(path) is string dir)
             {
@@ -655,22 +585,15 @@ namespace DuckSQL.Controls
             try
             {
                 var cacheRecords = new List<TabPageCacheRecord>();
-                foreach (TabPage page in TabPages)
+                foreach (var page in TabPages.OfType<CustomTabPage>())
                 {
-                    if (page is CustomTabPage ctp)
-                    {
-                        var tag = page.Tag as string;
-                        if (!ctp.IsFileBackedTab && ctp.HasQueryEditor())
-                        {
-                            var queryEditor = ctp.GetQueryEditor();
-                            tag = queryEditor.QueryText;
-                        }
+                    var text = page.CurrentText;
+                    if (!page.IsFileBackedTab && string.IsNullOrWhiteSpace(text))
+                        continue; //nothing worth restoring in empty scratch tabs
 
-                        if (string.IsNullOrWhiteSpace(tag))
-                            continue;
-
-                        cacheRecords.Add(new(tag, page.Text.Trim(), SelectedTab == page));
-                    }
+                    //Clean file backed tabs get reloaded from disk, so only keep their text when there are unsaved edits
+                    var textToCache = page.IsFileBackedTab && !page.IsDirty ? null : text;
+                    cacheRecords.Add(new(page.Kind, page.FilePath, page.ScratchNumber, textToCache, SelectedTab == page));
                 }
 
                 //Check if anything changed, including the currently selected tab
@@ -679,8 +602,7 @@ namespace DuckSQL.Controls
 
                 foreach (var cacheRecord in cacheRecords)
                 {
-                    tabCacheHash.Add(cacheRecord.Tag);
-                    tabCacheHash.Add(cacheRecord.Title);
+                    tabCacheHash.Add(cacheRecord);
                 }
                 var tabCacheHashCode = tabCacheHash.ToHashCode();
 
@@ -715,6 +637,34 @@ namespace DuckSQL.Controls
         }
 
         private record TabControlCacheRecord(int NewQueryCount, TabPageCacheRecord[] Records);
-        private record TabPageCacheRecord(string Tag, string Title, bool IsSelectedTab);
+        private record TabPageCacheRecord(CustomTabPage.TabKind Kind, string? FilePath, int ScratchNumber, string? Text, bool IsSelectedTab,
+            string? Tag = null, string? Title = null) //Tag & Title are only used to read caches from older versions
+        {
+            //Legacy records stored file paths in Tag, which are never blank, so a blank Tag means an empty query tab
+            public bool IsEmptyQueryTab => Tag is not null
+                ? string.IsNullOrWhiteSpace(Tag)
+                : Kind == CustomTabPage.TabKind.Scratch && string.IsNullOrWhiteSpace(Text);
+
+            public CustomTabPage ToTabPage()
+            {
+                if (Tag is not null && Title is not null)
+                    return FromLegacyRecord(Tag, Title);
+
+                return Kind == CustomTabPage.TabKind.SqlFile && FilePath is not null
+                    ? CustomTabPage.ForSqlFile(FilePath, Text)
+                    : CustomTabPage.ForScratch(ScratchNumber, Text);
+            }
+
+            //Old caches stored either a file path or query text in Tag, and the tab title in Title
+            private static CustomTabPage FromLegacyRecord(string tag, string title)
+            {
+                if (File.Exists(tag) && Path.GetExtension(tag).Equals(".sql"))
+                    return CustomTabPage.ForSqlFile(tag);
+
+                var scratchNumber = int.TryParse(title.Trim(' ', '*').Split(' ').Last(), out var number) ? number : 1;
+                var queryText = File.Exists(tag) || Directory.Exists(tag) ? QueryEditorControl.BuildSelectQuery(tag) : tag;
+                return CustomTabPage.ForScratch(scratchNumber, queryText);
+            }
+        }
     }
 }

@@ -74,11 +74,17 @@ OFFSET {3} ";
             }
             else
             {
-                var queryFields = "*";
-                var fromClause = $"'{filePath}'";
-                QueryText = QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
+                QueryText = BuildSelectQuery(filePath, offset, limit);
             }
             executeQueryButton.Enabled = true;
+        }
+
+        /// <summary>Builds the default query used to preview a data file or folder.</summary>
+        public static string BuildSelectQuery(string filePath, int offset = 0, int limit = 1000)
+        {
+            var queryFields = "*";
+            var fromClause = $"'{filePath}'";
+            return QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
         }
 
         private void QueryEditorControl_Load(object sender, EventArgs e)
