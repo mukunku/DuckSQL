@@ -483,16 +483,8 @@ OFFSET {3} ";
                 return true;
 
             var extension = Path.GetExtension(fileName);
-
-            foreach (var fileType in Enum.GetValues<FileType>())
-            {
-                if (fileType.GetExtension().Equals(extension))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            var fileType = UtilityMethods.ExtensionToFileType(extension);
+            return fileType is not null;
         }
 
         internal class QueryExecutedEventArgs : EventArgs

@@ -293,13 +293,14 @@ namespace DuckSQL
                 this.exportFileDialog.FilterIndex = (int)defaultFileType + 1;
                 if (filePathWithExtension is not null || this.exportFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    filePath = filePathWithExtension ?? this.exportFileDialog.FileName;
-                    CleanupFile(filePath); //Delete any existing file (user already confirmed any overwrite)
-
-                    var fileExtension = Path.GetExtension(filePath);
+                    var selectedFilePath = filePathWithExtension ?? this.exportFileDialog.FileName;
+                    var fileExtension = Path.GetExtension(selectedFilePath);
                     FileType? selectedFileType = UtilityMethods.ExtensionToFileType(fileExtension);
                     if (selectedFileType is null)
                         throw new ArgumentOutOfRangeException(fileExtension);
+
+                    filePath = selectedFilePath;
+                    CleanupFile(filePath); //Delete any existing file (user already confirmed any overwrite)
 
                     var stopWatch = Stopwatch.StartNew();
                     loadingIcon = this.ShowLoadingIcon(Resources.Strings.ExportingDataLabelText, dataTable.DefaultView.Count * dataTable.Columns.Count);

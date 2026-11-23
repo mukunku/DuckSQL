@@ -163,18 +163,15 @@ namespace DuckSQL.Helpers
         /// <returns>null if no matching file type is found</returns>
         public static FileType? ExtensionToFileType(string extension)
         {
-            if (extension == ".xls")
-                return FileType.XLS;
-            else if (extension == ".xlsx")
-                return FileType.XLSX;
-            else if (extension == ".csv")
-                return FileType.CSV;
-            else if (extension == ".json")
-                return FileType.JSON;
-            else if (extension == ".parquet")
-                return FileType.PARQUET;
-            else
-                return null;
+            extension = extension?.ToLowerInvariant() ?? string.Empty;
+            foreach (var fileType in Enum.GetValues<FileType>())
+            {
+                if (fileType.GetExtension().Equals(extension))
+                {
+                    return fileType;
+                }
+            }
+            return null;
         }
     }
 }

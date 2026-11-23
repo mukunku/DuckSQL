@@ -82,7 +82,7 @@ namespace DuckSQL.Helpers
                 return value;
 
             maxLength = Math.Abs(maxLength);
-            return value.Length <= maxLength ? value : (value.Substring(0, maxLength) + truncateSuffix);
+            return value.Length <= maxLength ? value : string.Concat(value.AsSpan(0, maxLength), truncateSuffix);
         }
 
         public static IEnumerable<DataGridViewCell> AsEnumerable(this DataGridViewSelectedCellCollection selectedCells)
