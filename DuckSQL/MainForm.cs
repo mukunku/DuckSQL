@@ -93,13 +93,7 @@ namespace DuckSQL
                 }
                 else
                 {
-                    string? customDateFormat = null;
-                    if (AppSettings.DateTimeDisplayFormat == DateFormat.Custom)
-                    {
-                        customDateFormat = AppSettings.CustomDateFormat;
-                    }
-
-                    using var customDateFormatInputForm = new CustomDateFormatInputForm(customDateFormat);
+                    using var customDateFormatInputForm = new CustomDateFormatInputForm(AppSettings.CustomDateFormat);
                     if (customDateFormatInputForm.ShowDialog(this) == DialogResult.OK)
                     {
                         SetNewDateFormat(DateFormat.Custom, customDateFormatInputForm.UserEnteredDateFormat);
