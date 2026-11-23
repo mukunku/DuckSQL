@@ -151,6 +151,12 @@ namespace DuckSQL.Helpers
         }
 
         /// <summary>
+        /// Checks if the path has a .sql extension, ignoring case.
+        /// </summary>
+        public static bool IsSqlFile([NotNullWhen(true)] string? path)
+            => path is not null && Path.GetExtension(path).Equals(".sql", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Returns a <see cref="FileType"/> if a matching one is found for a given file extension.
         /// </summary>
         /// <param name="extension">File extension in ".xyz" format</param>

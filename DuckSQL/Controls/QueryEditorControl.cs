@@ -37,9 +37,6 @@ OFFSET {3} ";
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public string? CurrentFilePath { get; set; }
-
-        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public string? LastExecutedQuery { get; private set; }
 
         public QueryEditorControl()
@@ -67,7 +64,7 @@ OFFSET {3} ";
 
         public QueryEditorControl(string filePath, int offset = 0, int limit = 1000) : this()
         {
-            if (Path.GetExtension(filePath).Equals(".sql"))
+            if (UtilityMethods.IsSqlFile(filePath))
             {
                 var fileContent = File.ReadAllText(filePath);
                 QueryText = fileContent;
@@ -496,10 +493,10 @@ OFFSET {3} ";
             if (fileName is null)
                 return false;
 
-            var extension = Path.GetExtension(fileName);
-
-            if (extension.Equals(".sql"))
+            if (UtilityMethods.IsSqlFile(fileName))
                 return true;
+
+            var extension = Path.GetExtension(fileName);
 
             foreach (var fileType in Enum.GetValues<FileType>())
             {

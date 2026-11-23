@@ -1,5 +1,6 @@
 using DuckSQL.Analytics;
 using DuckSQL.Exceptions;
+using DuckSQL.Helpers;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text.Json;
@@ -373,7 +374,7 @@ namespace DuckSQL.Controls
             var hasNoTabs = TabCount == 0;
 
             CustomTabPage newTab;
-            if (File.Exists(filePath) && Path.GetExtension(filePath).Equals(".sql"))
+            if (File.Exists(filePath) && UtilityMethods.IsSqlFile(filePath))
             {
                 //Don't open the same file twice, return the existing tab instead
                 var existingTab = TabPages.OfType<CustomTabPage>()
@@ -662,7 +663,7 @@ namespace DuckSQL.Controls
             //Old caches stored either a file path or query text in Tag, and the tab title in Title
             private static CustomTabPage FromLegacyRecord(string tag, string title)
             {
-                if (File.Exists(tag) && Path.GetExtension(tag).Equals(".sql"))
+                if (File.Exists(tag) && UtilityMethods.IsSqlFile(tag))
                     return CustomTabPage.ForSqlFile(tag);
 
                 var scratchNumber = int.TryParse(title.Trim(' ', '*').Split(' ').Last(), out var number) ? number : 1;
