@@ -28,6 +28,16 @@ namespace DuckSQL.Helpers
             _ => string.Empty,
         };
 
+        private const string DefaultTimeOnlyFormat = "T";
+        public const string ISO8601TimeOnlyFormat = "HH:mm:ss.FFFFFFF";
+        public static string TimeOnlyFormat => AppSettings.DateTimeDisplayFormat switch
+        {
+            DateFormat.Default => DefaultTimeOnlyFormat,
+            DateFormat.ISO8601 => ISO8601TimeOnlyFormat,
+            DateFormat.Custom => UtilityMethods.StripDateComponentsFromDateFormat(AppSettings.CustomDateFormat) ?? DefaultTimeOnlyFormat,
+            _ => string.Empty,
+        };
+
         #region Latest Release Version
         private const string RELEASES_API_URL = "https://api.github.com/repos/mukunku/DuckSQL/releases";
         private static SemanticVersion? _latestReleaseVersion = null;

@@ -125,6 +125,8 @@ namespace DuckSQL.Controls
                     column.DefaultCellStyle.Format = Env.DateTimeFormat;
                 else if (column.ValueType == typeof(DateOnly))
                     column.DefaultCellStyle.Format = Env.DateOnlyFormat;
+                else if (column.ValueType == typeof(TimeOnly))
+                    column.DefaultCellStyle.Format = Env.TimeOnlyFormat;
             }
         }
 
@@ -708,6 +710,14 @@ namespace DuckSQL.Controls
                     //We can just measure a few without going through all of them.
                     colStringCollection = nonNullColumnValues
                         .Select(row => row.Field<DateOnly>(i).ToString(Env.DateOnlyFormat))
+                        .Take(10);
+                }
+                else if (gridTable.Columns[i].DataType == typeof(TimeOnly))
+                {
+                    //All time only's will probably have the same string length so no need to go through all values.
+                    //We can just measure a few without going through all of them.
+                    colStringCollection = nonNullColumnValues
+                        .Select(row => row.Field<TimeOnly>(i).ToString(Env.TimeOnlyFormat))
                         .Take(10);
                 }
                 else if (gridTable.Columns[i].DataType.ImplementsInterface<IStructValue>())

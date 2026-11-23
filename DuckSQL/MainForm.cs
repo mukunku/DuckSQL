@@ -506,6 +506,7 @@ namespace DuckSQL
 
                 string dateFormat = Env.DateTimeFormat;
                 string dateOnlyFormat = Env.DateOnlyFormat;
+                string timeOnlyFormat = Env.TimeOnlyFormat;
                 foreach (DataRowView row in dataTable.DefaultView)
                 {
                     rowBuilder.Clear();
@@ -535,6 +536,10 @@ namespace DuckSQL
                         {
                             rowBuilder.Append(UtilityMethods.CleanCSVValue(dateOnly.ToString(dateOnlyFormat)));
                         }
+                        else if (value is TimeOnly timeOnly)
+                        {
+                            rowBuilder.Append(UtilityMethods.CleanCSVValue(timeOnly.ToString(timeOnlyFormat)));
+                        }
                         else
                         {
                             var stringValue = value!.ToString()!; //we never have `null` only `DBNull.Value`
@@ -553,6 +558,7 @@ namespace DuckSQL
             {
                 string dateFormat = Env.DateTimeFormat;
                 string dateOnlyFormat = Env.DateOnlyFormat;
+                string timeOnlyFormat = Env.TimeOnlyFormat;
                 using var fs = new FileStream(path, FileMode.OpenOrCreate);
                 var excelWriter = new ExcelWriter(fs);
                 excelWriter.BeginWrite();
@@ -593,6 +599,10 @@ namespace DuckSQL
                         else if (value is DateOnly dateOnly)
                         {
                             excelWriter.WriteCell(i + 1, j, dateOnly.ToString(dateOnlyFormat));
+                        }
+                        else if (value is TimeOnly timeOnly)
+                        {
+                            excelWriter.WriteCell(i + 1, j, timeOnly.ToString(timeOnlyFormat));
                         }
                         else
                         {

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace DuckSQL.Helpers
 {
@@ -24,6 +25,14 @@ namespace DuckSQL.Helpers
             }
         }
 
+        /// <summary>
+        /// Checks the format works for DateTime, and that its stripped down versions work for DateOnly and TimeOnly.
+        /// </summary>
+        /// <remarks>
+        /// Best effort by design. The stripping only understands custom formats, so some valid DateTime formats get rejected,
+        /// such as standard (single char) formats like "G" and patterns that leave a lone literal behind. That's okay: the
+        /// custom date format dialog won't save a rejected format, and users can always enter an equivalent custom format instead.
+        /// </remarks>
         public static bool IsValidDateFormat(string? dateFormat)
         {
             if (string.IsNullOrWhiteSpace(dateFormat))
@@ -31,7 +40,17 @@ namespace DuckSQL.Helpers
 
             try
             {
-                DateTime.UtcNow.ToString(dateFormat);
+                //Test on DateTime
+                _ = DateTime.UtcNow.ToString(dateFormat);
+
+                //Test on DateOnly
+                var dateOnlyFormat = StripTimeComponentsFromDateFormat(dateFormat);
+                _ = DateOnly.FromDateTime(DateTime.UtcNow).ToString(dateOnlyFormat);
+
+                //Test on TimeOnly
+                var timeOnlyFormat = StripDateComponentsFromDateFormat(dateFormat);
+                _ = TimeOnly.FromDateTime(DateTime.UtcNow).ToString(timeOnlyFormat);
+
                 return true;
             }
             catch (Exception)
@@ -40,23 +59,49 @@ namespace DuckSQL.Helpers
             }
         }
 
+        //Characters left dangling once components are stripped out. Includes the narrow no-break space (\u202F)
+        //and right-to-left mark (\u200F) some cultures use in their date/time patterns.
+        private static readonly char[] _dateTimeSeparatorChars = ['/', '-', '.', ' ', ',', '_', ':', '\u202F', '\u200F'];
+
         /// <summary>
         /// Best effort attempt at stripping time components from a date format string.
         /// </summary>
         /// <param name="dateFormat">Date format with potential time components</param>
         /// <returns>Date format with no time components</returns>
+        /// <remarks>If empty string is returned, formatting with it will use the users default culture format</remarks>
         public static string? StripTimeComponentsFromDateFormat(string? dateFormat)
         {
             if (dateFormat is null)
                 return dateFormat;
 
-            var timeComponents = new string[] { "H", "h", "m", "s", "f", "F", "t", "z", "K" };
+            var timeComponents = new string[] { "H", "h", "m", "s", "f", "F", "t", "z", "K", "'ч'" };
             foreach (var component in timeComponents)
             {
                 dateFormat = dateFormat.Replace(component, string.Empty);
             }
-            dateFormat = dateFormat.Replace("  ", " ");
-            dateFormat = dateFormat.TrimEnd('/', '-', '.', ' ', ',', '_');
+            dateFormat = Regex.Replace(dateFormat, @"\s{2,}", " ");
+            dateFormat = dateFormat.Trim(_dateTimeSeparatorChars);
+            return dateFormat.Trim();
+        }
+
+        /// <summary>
+        /// Best effort attempt at stripping date components from a date format string.
+        /// </summary>
+        /// <param name="dateFormat">Date format with potential date components</param>
+        /// <returns>Time format with no date components</returns>
+        /// <remarks>If empty string is returned, formatting with it will use the users default culture format</remarks>
+        public static string? StripDateComponentsFromDateFormat(string? dateFormat)
+        {
+            if (dateFormat is null)
+                return dateFormat;
+
+            var dateComponents = new string[] { "y", "M", "d", "g" };
+            foreach (var component in dateComponents)
+            {
+                dateFormat = dateFormat.Replace(component, string.Empty);
+            }
+            dateFormat = Regex.Replace(dateFormat, @"\s{2,}", " ");
+            dateFormat = dateFormat.Trim(_dateTimeSeparatorChars);
             return dateFormat.Trim();
         }
 
