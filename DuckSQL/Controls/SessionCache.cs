@@ -10,8 +10,20 @@ namespace DuckSQL.Controls
     {
         private const string CACHE_FILE_NAME = "DUCKSQL_QUERY_CACHE.json";
         private const string CACHE_BACKUP_FILE_NAME = "DUCKSQL_QUERY_BACKUP_CACHE.json";
-        private static string CacheFilePath => Path.Combine(Path.GetTempPath(), CACHE_FILE_NAME);
-        private static string CacheBackupFilePath => Path.Combine(Path.GetTempPath(), CACHE_BACKUP_FILE_NAME);
+
+        //%LOCALAPPDATA%\DuckSQL.
+        //Falls back to temp if the profile folder isn't available (GetFolderPath returns "" in that case).
+        private static readonly string CacheDirectory =
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) is { Length: > 0 } localAppData
+                ? Path.Combine(localAppData, "DuckSQL")
+                : Path.GetTempPath();
+
+        private static string CacheFilePath => Path.Combine(CacheDirectory, CACHE_FILE_NAME);
+        private static string CacheBackupFilePath => Path.Combine(CacheDirectory, CACHE_BACKUP_FILE_NAME);
+
+        //Where versions before 1.1.0 stored the cache. Only read, never written.
+        private static string LegacyCacheFilePath => Path.Combine(Path.GetTempPath(), CACHE_FILE_NAME);
+        private static string LegacyCacheBackupFilePath => Path.Combine(Path.GetTempPath(), CACHE_BACKUP_FILE_NAME);
 
         //If user is running a second or more instance of DuckSQL.exe, to prevent session cache collisions,
         //only respect the session of the first, "primary", instance.
@@ -31,13 +43,11 @@ namespace DuckSQL.Controls
             if (IsDisabled)
                 return null;
 
-            var mainCacheFileLastWriteTime = File.Exists(CacheFilePath) ? File.GetLastWriteTime(CacheFilePath) : DateTime.MinValue;
-            var backupCacheFileLastWriteTime = File.Exists(CacheBackupFilePath) ? File.GetLastWriteTime(CacheBackupFilePath) : DateTime.MinValue;
-
-            if (mainCacheFileLastWriteTime == DateTime.MinValue && backupCacheFileLastWriteTime == DateTime.MinValue)
+            var cacheFileToUsePath = GetNewestExistingFile(CacheFilePath, CacheBackupFilePath)
+                ?? GetNewestExistingFile(LegacyCacheFilePath, LegacyCacheBackupFilePath);
+            if (cacheFileToUsePath is null)
                 return null; //nothing to restore
 
-            var cacheFileToUsePath = mainCacheFileLastWriteTime > backupCacheFileLastWriteTime ? CacheFilePath : CacheBackupFilePath;
             var cacheDetails = JsonSerializer.Deserialize<TabControlCacheRecord>(File.ReadAllText(cacheFileToUsePath));
             if (cacheDetails is null)
                 return null;
@@ -56,6 +66,9 @@ namespace DuckSQL.Controls
             }
 
             return new RestoredSession(tabs, selectedTab, cacheDetails.NewQueryCount);
+
+            static string? GetNewestExistingFile(params string[] paths)
+                => paths.Where(File.Exists).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
         }
 
         /// <summary>
@@ -93,6 +106,8 @@ namespace DuckSQL.Controls
                 if (force || _lastCacheHashCode != tabCacheHashCode)
                 {
                     var cacheDetails = new TabControlCacheRecord(newQueryCount, cacheRecords.ToArray());
+
+                    Directory.CreateDirectory(CacheDirectory); //no-op if it already exists
 
                     //Write to a temp file first and then swap it in, so the cache file is never left half written
                     var tempPath = _cachePath + ".tmp";

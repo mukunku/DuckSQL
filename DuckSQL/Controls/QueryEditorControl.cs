@@ -115,6 +115,7 @@ OFFSET {3} ";
             }
             catch (OperationCanceledException)
             {
+                result.Dispose();
                 throw;
             }
             catch (Exception ex)

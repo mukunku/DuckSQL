@@ -41,7 +41,7 @@ namespace DuckSQL.Controls
         #endregion
 
         #region Session Caching
-        private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = true, Interval = 1000 };
+        private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = false, Interval = 1000 };
         private readonly SessionCache _sessionCache = new();
         #endregion
 
@@ -86,6 +86,10 @@ namespace DuckSQL.Controls
             catch (Exception ex)
             {
                 throw new SessionResumeFailedException("Failed to resume your last session.", ex);
+            }
+            finally
+            {
+                _cacheOpenTabsTimer.Start();
             }
         }
 
