@@ -460,15 +460,10 @@ namespace DuckSQL
             }
             else if (fileType == FileType.PARQUET)
             {
+                //Parquet exports re-run the query, so we need it. Shouldn't happen since results only exist after a query succeeds.
                 if (string.IsNullOrWhiteSpace(sourceQuery))
-                {
-                    MessageBox.Show(
-                        Resources.Errors.ParquetExportQueryUnavailableErrorMessage,
-                        Resources.Errors.ExportFailedErrorTitle,
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-                    return Task.CompletedTask;
-                }
+                    throw new InvalidOperationException("Can't export to parquet because the query that produced the results is unknown. " +
+                        "Please re-run the query and try exporting again.");
 
                 return WriteDataToParquetFile(dataTable, sourceQuery, filePath, cancellationToken, progress);
             }

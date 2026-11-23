@@ -164,6 +164,9 @@ namespace DuckSQL.Controls
             if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null && HasMovedPastDragThreshold(e.Location))
             {
                 DoDragDrop(TabPages[_dragStartTabIndex.Value], DragDropEffects.Move);
+
+                //DoDragDrop swallows the mouse up, so OnMouseUp won't reset these for us
+                ResetTabDragState();
             }
             #endregion
         }
@@ -232,6 +235,15 @@ namespace DuckSQL.Controls
                 return;
 
             MoveTab(_dragStartTabIndex.Value, _dragStopTabIndex.Value);
+
+            //Otherwise a later file drop onto a query editor (which gets relayed here) would move the tab again
+            ResetTabDragState();
+        }
+
+        private void ResetTabDragState()
+        {
+            _dragStartTabIndex = null;
+            _dragStopTabIndex = null;
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
@@ -486,6 +498,9 @@ namespace DuckSQL.Controls
             }
 
             TabPages.RemoveAt(tabIndex);
+
+            //Tabs shifted, so the remembered hover index may now point at a different tab. Recheck against the real cursor position.
+            _closeButtonHoveredTabIndex = CursorHoverCloseTabButtonIndex(PointToClient(Cursor.Position));
 
             if (TabCount == 0)
             {

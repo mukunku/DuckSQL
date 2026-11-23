@@ -214,15 +214,6 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Something went wrong. Please re-run your query first and then try exporting again..
-        /// </summary>
-        internal static string ParquetExportQueryUnavailableErrorMessage {
-            get {
-                return ResourceManager.GetString("ParquetExportQueryUnavailableErrorMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Error executing query.
         /// </summary>
         internal static string QueryExecutionErrorTitle {

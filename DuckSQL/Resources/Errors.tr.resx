@@ -182,9 +182,6 @@ Lütfen farklı bir dosya tipi seçin veya kaydetmeye çalıştığınız alan s
   <data name="ExportFailedErrorTitle" xml:space="preserve">
     <value>Dosyaya aktarım başarısız oldu</value>
   </data>
-  <data name="ParquetExportQueryUnavailableErrorMessage" xml:space="preserve">
-    <value>Birşey ters gitti. Lütfen önce sorguyu tekrar çalıştırıp sonra dışa aktarmayı yeniden deneyin.</value>
-  </data>
   <data name="UnsupportedExportFileTypeErrorMessageFormat" xml:space="preserve">
     <value>DuckSQL '{0}' dosyalarına aktarım yapamıyor.</value>
   </data>
