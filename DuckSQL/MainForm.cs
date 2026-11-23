@@ -297,7 +297,11 @@ namespace DuckSQL
                     var fileExtension = Path.GetExtension(selectedFilePath);
                     FileType? selectedFileType = UtilityMethods.ExtensionToFileType(fileExtension);
                     if (selectedFileType is null)
-                        throw new ArgumentOutOfRangeException(fileExtension);
+                    {
+                        MessageBox.Show(this, Resources.Errors.UnsupportedExportFileTypeErrorMessageFormat.Format(fileExtension),
+                            Resources.Errors.ExportFailedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
 
                     filePath = selectedFilePath;
                     CleanupFile(filePath); //Delete any existing file (user already confirmed any overwrite)
