@@ -26,6 +26,7 @@ namespace DuckSQL.Controls
         #region Drag & Drop
         private int? _dragStartTabIndex = null;
         private int? _dragStopTabIndex = null;
+        private Point _dragStartLocation = Point.Empty;
         #endregion
 
         #region Events
@@ -156,7 +157,7 @@ namespace DuckSQL.Controls
             #endregion
 
             #region Drag/Drop reordering effect
-            if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null)
+            if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null && HasMovedPastDragThreshold(e.Location))
             {
                 DoDragDrop(TabPages[_dragStartTabIndex.Value], DragDropEffects.Move);
             }
@@ -180,6 +181,23 @@ namespace DuckSQL.Controls
             }
 
             _dragStartTabIndex = CursorHoverTabIndex(e.Location);
+            _dragStartLocation = e.Location;
+        }
+
+        //Only start dragging once the mouse moves far enough, so normal clicks with a slight wiggle don't start a drag.
+        private bool HasMovedPastDragThreshold(Point cursorLocation)
+        {
+            //Use the default Windows drag threshold (4px)
+            var dragSize = SystemInformation.DragSize;
+
+            //Center the rectangle on the drag start location
+            var dragThreshold = new Rectangle(
+                _dragStartLocation.X - dragSize.Width / 2,
+                _dragStartLocation.Y - dragSize.Height / 2,
+                dragSize.Width, dragSize.Height);
+
+            //Confirm the cursor has left that rectangle
+            return !dragThreshold.Contains(cursorLocation);
         }
 
         protected override void OnDragOver(DragEventArgs e)
@@ -458,6 +476,8 @@ namespace DuckSQL.Controls
             if (isDirty && MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
+                _closeButtonHoveredTabIndex = null; //The dialog took over focus
+                Invalidate();
                 return;
             }
 
