@@ -22,7 +22,7 @@ namespace DuckSQL
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            Env.TryClaimPrimaryInstance(); // Released in OnFormClosing.
+            Env.TryClaimPrimaryInstance(); // Released in OnFormClosed.
 
             //If this isn't the "primary" instance its tabs won't be sessioncache'd.
             //We signify this to the user by adding a suffix in the app title.
