@@ -180,7 +180,7 @@ namespace DuckSQL
 
             if (MessageBox.Show(this,
                 Resources.Strings.LanguageChangeConfirmationMessage,
-                Resources.Strings.LanguageChangeConfirmationTitle,
+                Resources.Strings.RestartApplicationConfirmationTitle,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
@@ -260,6 +260,7 @@ namespace DuckSQL
             else if (e.Control && e.KeyCode == Keys.R)
             {
                 e.Handled = true;
+                e.SuppressKeyPress = true;
                 UtilityMethods.RestartApplication();
             }
         }
@@ -284,6 +285,21 @@ namespace DuckSQL
             if (e.Cancel)
                 return;
 
+            //Secondary instances ("[NO SESSION]") don't save their session, so closing one throws away its unsaved tabs
+            if (!Env.IsPrimaryInstance())
+            {
+                var unsavedTabCount = tabControl1.GetTabs().Count(tab => tab.IsDirty);
+
+                if (unsavedTabCount > 0 && MessageBox.Show(this,
+                    Resources.Strings.NoSessionUnsavedTabsWarningMessageFormat.Format(unsavedTabCount),
+                    Resources.Strings.UnsavedChangesWarningTitle,
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.OK)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
             tabControl1.SaveSessionCacheAndStopSession();
             Env.TryReleasePrimaryInstance(); // Counterpart of ClaimPrimaryInstance in MainForm_Load
         }
@@ -302,7 +318,7 @@ namespace DuckSQL
             try
             {
                 this.exportFileDialog.Title = Resources.Strings.RecordsToBeExportedTitleFormat.Format(dataTable.Rows.Count);
-                this.exportFileDialog.Filter = "CSV file (*.csv)|*.csv|JSON file (*.json)|*.json|Excel '93 file (*.xls)|*.xls|Excel '07 file (*.xlsx)|*.xlsx|Parquet file (*.parquet)|*.parquet";
+                this.exportFileDialog.Filter = "CSV file (*.csv)|*.csv|Excel '93 file (*.xls)|*.xls|Excel '07 file (*.xlsx)|*.xlsx|JSON file (*.json)|*.json|Parquet file (*.parquet)|*.parquet";                 //Filters must stay in FileType enum order so FilterIndex picks the right one
                 this.exportFileDialog.FilterIndex = (int)defaultFileType + 1;
                 if (filePathWithExtension is not null || this.exportFileDialog.ShowDialog() == DialogResult.OK)
                 {
@@ -322,32 +338,35 @@ namespace DuckSQL
                     var stopWatch = Stopwatch.StartNew();
                     loadingIcon = this.ShowLoadingIcon(Resources.Strings.ExportingDataLabelText, dataTable.DefaultView.Count * dataTable.Columns.Count);
 
-                    await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
-                        loadingIcon, tabControl1.SelectedTab?.Text, editor?.LastExecutedQuery);
+                    try
+                    {
+                        await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
+                            loadingIcon, tabControl1.SelectedTab?.Text, editor?.LastExecutedQuery);
+                    }
+                    finally
+                    {
+                        loadingIcon.Hide(); //Hide before any success/error/cancel message box is shown
+                    }
 
                     stopWatch.Stop();
-                    loadingIcon.Hide();
+                    loadingIcon.CancellationToken.ThrowIfCancellationRequested();
+                    long fileSizeInBytes = new FileInfo(filePath).Length;
+                    var fileSizeInMegaBytes = (float)Math.Round((fileSizeInBytes / 1024.0) / 1024.0, 2);
 
-                    if (loadingIcon.CancellationToken.IsCancellationRequested)
-                    {
-                        CleanupFile(filePath);
-                        MessageBox.Show(Resources.Strings.ExportCancelledMessage, Resources.Strings.ExportCancelledTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        long fileSizeInBytes = new FileInfo(filePath).Length;
-                        var fileSizeInMegaBytes = (float)Math.Round((fileSizeInBytes / 1024.0) / 1024.0, 2);
+                    FileExportEvent.FireAndForget(selectedFileType.Value, fileSizeInMegaBytes, dataTable.Rows.Count, dataTable.Columns.Count, stopWatch.ElapsedMilliseconds);
 
-                        FileExportEvent.FireAndForget(selectedFileType.Value, fileSizeInMegaBytes, dataTable.Rows.Count, dataTable.Columns.Count, stopWatch.ElapsedMilliseconds);
-
-                        MessageBox.Show(this,
-                            Resources.Strings.ExportSuccessfulMessageFormat.Format(fileSizeInMegaBytes),
-                            Resources.Strings.ExportSuccessfulTitle,
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
+                    MessageBox.Show(this,
+                        Resources.Strings.ExportSuccessfulMessageFormat.Format(fileSizeInMegaBytes),
+                        Resources.Strings.ExportSuccessfulTitle,
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
-            catch (Exception ex) when (ex is IOException or DuckDBException)
+            catch (OperationCanceledException)
+            {
+                CleanupFile(filePath);
+                MessageBox.Show(Resources.Strings.ExportCancelledMessage, Resources.Strings.ExportCancelledTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex) when (ex is IOException or DuckDBException or ParquetExportException)
             {
                 //DuckDBException: parquet export re-runs the query, which can fail (e.g. source file moved or isn't a SELECT)
                 CleanupFile(filePath);
@@ -462,7 +481,7 @@ namespace DuckSQL
             {
                 //Parquet exports re-run the query, so we need it. Shouldn't happen since results only exist after a query succeeds.
                 if (string.IsNullOrWhiteSpace(sourceQuery))
-                    throw new InvalidOperationException("Can't export to parquet because the query that produced the results is unknown. " +
+                    throw new ParquetExportException("Can't export to parquet because the query that produced the results is unknown. " +
                         "Please re-run the query and try exporting again.");
 
                 return WriteDataToParquetFile(dataTable, sourceQuery, filePath, cancellationToken, progress);
@@ -717,7 +736,7 @@ namespace DuckSQL
                         }
                     }
 
-                    throw new NotSupportedException($"Unable to translate grid sort '{sort}' to SQL");
+                    throw new ParquetExportException($"Unable to translate grid sort '{sort}' to SQL. Please clear the sort and try exporting again.");
                 }
             }, cancellationToken);
 

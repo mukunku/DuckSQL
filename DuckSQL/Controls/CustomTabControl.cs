@@ -415,6 +415,8 @@ namespace DuckSQL.Controls
 
         public CustomTabPage GetSelectedTab() => (CustomTabPage)(SelectedTab ?? throw new InvalidOperationException("No selected tab found"));
 
+        public IEnumerable<CustomTabPage> GetTabs() => TabPages.Cast<CustomTabPage>();
+
         /// <summary>
         /// Checks if the query editor is "empty". Meaning it's a scratch tab with no query text.
         /// </summary>

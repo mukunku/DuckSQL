@@ -60,6 +60,7 @@ OFFSET {3} ";
                 OnDragDrop(args);
             };
             AllowDrop = true;
+            Disposed += (s, args) => _queryCancellationToken?.Cancel(); //Closing a tab disposes its editor, so stop any running query instead of letting it finish against disposed controls
         }
 
         /// <summary>Builds the default query used to preview a data file or folder.</summary>
@@ -246,15 +247,19 @@ OFFSET {3} ";
             }
             finally
             {
-                queryExecutionStatusLabel.Text = _queryCancellationToken.IsCancellationRequested ?
-                    Resources.Strings.QueryCancelledStatusText : Resources.Strings.QueryFinishedStatusText;
-                timeElapsedLabel.Text = totalStopwatch.Elapsed.ToString("mm\\:ss");
-                showingCountLabel.Text = result.Rows.Count.ToString();
+                //The tab may have been closed (and this control disposed) while the query was running
+                if (!IsDisposed)
+                {
+                    queryExecutionStatusLabel.Text = _queryCancellationToken.IsCancellationRequested ?
+                        Resources.Strings.QueryCancelledStatusText : Resources.Strings.QueryFinishedStatusText;
+                    timeElapsedLabel.Text = totalStopwatch.Elapsed.ToString("mm\\:ss");
+                    showingCountLabel.Text = result.Rows.Count.ToString();
 
-                executeQueryButton.Enabled = true;
-                resultsGridView.Enabled = true;
-                cancelQueryButton.Enabled = false;
-                Cursor = Cursors.Default;
+                    executeQueryButton.Enabled = true;
+                    resultsGridView.Enabled = true;
+                    cancelQueryButton.Enabled = false;
+                    Cursor = Cursors.Default;
+                }
             }
         }
 

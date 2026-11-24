@@ -173,9 +173,13 @@
     <value>Changing the language requires an app restart. Would you like to continue?</value>
     <comment>Shown when the user clicks on a different UI language from the help menu</comment>
   </data>
-  <data name="LanguageChangeConfirmationTitle" xml:space="preserve">
+  <data name="RestartApplicationConfirmationTitle" xml:space="preserve">
     <value>Restart DuckSQL?</value>
-    <comment>Shown when the user clicks on a different UI language from the help menu</comment>
+    <comment>Title of the restart confirmation shown in certain cases. Example: when changing the UI language from the help menu or pressing Ctrl+R</comment>
+  </data>
+  <data name="NoSessionUnsavedTabsWarningMessageFormat" xml:space="preserve">
+    <value>This window isn't saving its session, so {0} unsaved tab(s) will be lost. Do you want to continue?</value>
+    <comment>Shown when closing or restarting a secondary DuckSQL window that doesn't save its session. {0} is the number of tabs that will be lost</comment>
   </data>
   <data name="NewQueryTabTitle" xml:space="preserve">
     <value>New query</value>

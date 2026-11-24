@@ -159,8 +159,11 @@
   <data name="LanguageChangeConfirmationMessage" xml:space="preserve">
     <value>Dili değiştirmek için uygulamanın yeniden başlatılmasi gerekiyor. Devam etmek ister misiniz?</value>
   </data>
-  <data name="LanguageChangeConfirmationTitle" xml:space="preserve">
+  <data name="RestartApplicationConfirmationTitle" xml:space="preserve">
     <value>DuckSQL'i yeniden başlat?</value>
+  </data>
+  <data name="NoSessionUnsavedTabsWarningMessageFormat" xml:space="preserve">
+    <value>Bu pencere oturumunu kaydetmiyor, bu yüzden kaydedilmemiş {0} sekme kaybolacak. Devam etmek istiyor musunuz?</value>
   </data>
   <data name="NewQueryTabTitle" xml:space="preserve">
     <value>Yeni sorgu</value>

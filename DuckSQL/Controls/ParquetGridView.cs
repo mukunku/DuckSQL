@@ -1035,22 +1035,40 @@ namespace DuckSQL.Controls
 
                     if (value != DBNull.Value)
                     {
+                        //Use a standard date format so the query is always syntactically correct.
+                        //Invariant culture is required: custom format strings still resolve the calendar from
+                        //the current culture, so locales like th-TH would emit a non-Gregorian year.
                         if (valueType == typeof(DateTime))
                         {
-                            //Use a standard date format so the query is always syntactically correct.
-                            //Invariant culture is required: custom format strings still resolve the calendar from
-                            //the current culture, so locales like th-TH would emit a non-Gregorian year.
                             queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
                                 ((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture));
+                        }
+                        else if (value is DateOnly dateOnly)
+                        {
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                dateOnly.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                        }
+                        else if (value is TimeOnly timeOnly)
+                        {
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                timeOnly.ToString("HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture));
+                        }
+                        else if (value is DateTimeOffset timeWithTimeZone)
+                        {
+                            //DuckDB.NET returns TIMETZ as a DateTimeOffset on a dummy date (TIMESTAMPTZ comes back as a DateTime).
+                            //Only emit the time and offset: a literal that includes the dummy date parses fine but never matches.
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                timeWithTimeZone.ToString("HH:mm:ss.FFFFFFFzzz", CultureInfo.InvariantCulture));
                         }
                         else if (valueType.IsNumber())
                         {
                             //Queries always expect '.' as the decimal separator. Formatting with the current culture
                             //would emit ',' in locales like de-DE, which breaks the query since ',' separates values inside an `IN (...)` clause.
                             var stringValue = Convert.ToString(value, CultureInfo.InvariantCulture);
+                            //Scientific notation (1E+20) and non-finite values (NaN, Infinity, -Infinity) need to be wrapped in single quotes
                             if ((valueType == typeof(float) || valueType == typeof(double))
-                                && stringValue?.Contains('E', StringComparison.OrdinalIgnoreCase) == true)
-                                stringValue = $"'{stringValue}'"; //scientific notation values need to be wrapped in single quotes
+                                && stringValue?.Any(char.IsLetter) == true)
+                                stringValue = $"'{stringValue}'";
 
                             queryBuilder.Append(stringValue);
                         }
@@ -1060,7 +1078,8 @@ namespace DuckSQL.Controls
                         }
                         else
                         {
-                            queryBuilder.Append($"'{value}'");
+                            var otherValue = value.ToString() ?? string.Empty;
+                            queryBuilder.Append($"'{otherValue.Replace("'", "''")}'");
                         }
                     }
 
