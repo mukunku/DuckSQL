@@ -1040,8 +1040,9 @@ namespace DuckSQL.Controls
                         //the current culture, so locales like th-TH would emit a non-Gregorian year.
                         if (valueType == typeof(DateTime))
                         {
+                            //Without +00 TIMESTAMPTZ typed values don't match. Regular TIMESTAMP fields don't need it.
                             queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
-                                ((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture));
+                                ((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture) + "+00");
                         }
                         else if (value is DateOnly dateOnly)
                         {

@@ -163,7 +163,7 @@
     <value>DuckSQL'i yeniden başlat?</value>
   </data>
   <data name="NoSessionUnsavedTabsWarningMessageFormat" xml:space="preserve">
-    <value>Bu pencere oturumunu kaydetmiyor, bu yüzden kaydedilmemiş {0} sekme kaybolacak. Devam etmek istiyor musunuz?</value>
+    <value>Bu pencere oturumunu kaydetmiyor, bu yüzden kaydedilmemiş {0} sekme kaybolacak. Devam etmek istiyor musun?</value>
   </data>
   <data name="NewQueryTabTitle" xml:space="preserve">
     <value>Yeni sorgu</value>

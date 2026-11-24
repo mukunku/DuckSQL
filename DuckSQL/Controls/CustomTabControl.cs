@@ -13,6 +13,7 @@ namespace DuckSQL.Controls
         private bool _isMouseLeftButtonDown = false;
         private int _rightClickedTabIndex = -1;
         private static int _newQueryCount = 0;
+        private readonly Dictionary<Font, Font> _boldFontCache = []; //Selected tab titles are drawn in bold. Cached so we don't create a font on every repaint
 
         #region Context Menu
         private readonly ContextMenuStrip _rightClickTabContextMenuStrip = new();
@@ -130,7 +131,16 @@ namespace DuckSQL.Controls
                 closeButtonRectangle.Height);
 
             var isSelected = SelectedIndex == e.Index;
-            var font = isSelected ? new Font(tabPage.Font, FontStyle.Bold) : tabPage.Font;
+            var font = tabPage.Font;
+            if (isSelected)
+            {
+                if (!_boldFontCache.TryGetValue(tabPage.Font, out var boldFont))
+                {
+                    boldFont = new Font(tabPage.Font, FontStyle.Bold);
+                    _boldFontCache.Add(tabPage.Font, boldFont);
+                }
+                font = boldFont;
+            }
 
             TextRenderer.DrawText(e.Graphics, tabPage.Text, font,
                 tabRect, tabPage.ForeColor, TextFormatFlags.Left);
@@ -601,6 +611,20 @@ namespace DuckSQL.Controls
             Controls.SetChildIndex(tabToBeMoved, targetTabIndex); //keep Controls in the same order as TabPages, or RemoveAt(index) removes the wrong tab
             SelectedTab = tabToBeMoved;
             Refresh();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                foreach (var font in _boldFontCache.Values)
+                {
+                    font.Dispose();
+                }
+                _boldFontCache.Clear();
+            }
+
+            base.Dispose(disposing);
         }
 
         private void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
