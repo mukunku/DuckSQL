@@ -67,8 +67,36 @@ OFFSET {3} ";
         public static string BuildSelectQuery(string filePath, int offset = 0, int limit = 1000)
         {
             var queryFields = "*";
-            var fromClause = $"'{filePath}'";
+            var source = Directory.Exists(filePath) ? BuildFolderGlob(filePath) : filePath;
+            var fromClause = $"'{source.Replace("'", "''")}'";
             return QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
+        }
+
+        /// <summary>
+        /// DuckDB can't read a folder path directly, so turn it into a recursive glob over the first queryable
+        /// data file type found inside, e.g. "folder\**\*.parquet". This also picks up hive partitioned folders.
+        /// </summary>
+        private static string BuildFolderGlob(string folderPath)
+        {
+            string extension = FileType.PARQUET.GetExtension(); //no data files found: DuckDB then reports that nothing matched the pattern
+            try
+            {
+                var firstDataFileExtension = Directory.EnumerateFiles(folderPath, "*", new EnumerationOptions
+                    {
+                        RecurseSubdirectories = true,
+                        IgnoreInaccessible = true,
+                    })
+                    .Select(Path.GetExtension)
+                    .FirstOrDefault(fileExtension => UtilityMethods.ExtensionToFileType(fileExtension ?? string.Empty) is { } fileType
+                        && fileType != FileType.XLS); //DuckDB has no .xls reader
+
+                if (firstDataFileExtension is not null)
+                    extension = firstDataFileExtension.ToLowerInvariant();
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+
+            return Path.Combine(folderPath, "**", "*" + extension);
         }
 
         private void QueryEditorControl_Load(object sender, EventArgs e)
