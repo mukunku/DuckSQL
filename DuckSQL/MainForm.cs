@@ -396,7 +396,7 @@ namespace DuckSQL
 
             if (rerunType is not null)
             {
-                await ExportResultsAsync(default, filePath is not null ? Path.ChangeExtension(filePath, rerunType.Value.ToString()) : filePath);
+                await ExportResultsAsync(default, filePath is not null ? Path.ChangeExtension(filePath, rerunType.Value.GetExtension()) : filePath);
             }
 
             static void CleanupFile(string? filePath)

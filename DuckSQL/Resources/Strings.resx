@@ -175,7 +175,7 @@
   </data>
   <data name="RestartApplicationConfirmationTitle" xml:space="preserve">
     <value>Restart DuckSQL?</value>
-    <comment>Title of the restart confirmation shown in certain cases. Example: when changing the UI language from the help menu or pressing Ctrl+R</comment>
+    <comment>Title of the confirmation shown before DuckSQL restarts itself, e.g. after the user picks a different UI language from the help menu</comment>
   </data>
   <data name="NoSessionUnsavedTabsWarningMessageFormat" xml:space="preserve">
     <value>This window isn't saving its session, so {0} unsaved tab(s) will be lost. Do you want to continue?</value>
