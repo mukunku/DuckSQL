@@ -24,12 +24,14 @@ namespace DuckSQL.Controls
         public event EventHandler? QueryExecutionStarted;
         public event EventHandler<QueryEditorControl.QueryExecutedEventArgs>? QueryExecuted;
 
+        private static readonly Font _font = new Font("Segoe UI", 9);
+
         //Text to load into the query editor once it's lazily created
         private string? _initialQueryText;
 
         private CustomTabPage(TabKind kind, string? filePath, int scratchNumber, string? initialQueryText, bool isDirty)
         {
-            this.Font = new Font("Segoe UI", 9);
+            this.Font = _font;
             Kind = kind;
             FilePath = filePath;
             ScratchNumber = scratchNumber;

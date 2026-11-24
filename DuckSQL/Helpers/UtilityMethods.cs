@@ -156,7 +156,9 @@ namespace DuckSQL.Helpers
         /// <summary>
         /// Starts a new DuckSQL instance and terminates the current one.
         /// </summary>
-        public static void RestartApplication()
+        /// <param name="beforeRelaunch">Runs only once the current instance has agreed to exit, right before the new one starts.
+        /// Use it for changes that should only stick if the restart actually happens.</param>
+        public static void RestartApplication(Action? beforeRelaunch = null)
         {
             //Terminate this instance first. This synchronously runs MainForm.OnFormClosing and then OnFormClosed, which
             //does the final session save and releases the primary instance mutex before the new instance starts.
@@ -164,6 +166,8 @@ namespace DuckSQL.Helpers
             Application.Exit(exitArgs);
             if (exitArgs.Cancel)
                 return; //A form refused to close
+
+            beforeRelaunch?.Invoke();
 
             //Start a new DuckSQL instance. Yes this code will also run even though we exited above :P
             ProcessStartInfo startInfo = new()

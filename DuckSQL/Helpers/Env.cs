@@ -123,9 +123,9 @@ namespace DuckSQL.Helpers
             {
                 _isPrimaryInstance = true; //previous owner crashed; we own it now
             }
-            catch (UnauthorizedAccessException)
+            catch (Exception)
             {
-                _isPrimaryInstance = false; //another instance, likely running as administrator, owns it
+                _isPrimaryInstance = false;
             }
         }
 
@@ -139,7 +139,7 @@ namespace DuckSQL.Helpers
         {
             if (_isPrimaryInstance == true)
                 _operatingSystemLevelNamedMutex?.ReleaseMutex();
-            
+
             _isPrimaryInstance = false;
         }
         #endregion

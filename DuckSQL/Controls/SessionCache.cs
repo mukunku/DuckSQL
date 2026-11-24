@@ -78,11 +78,11 @@ namespace DuckSQL.Controls
         /// <remarks>This is synchronous on purpose to guarantee completion on application shutdown.</remarks>
         public void Save(IEnumerable<CustomTabPage> tabs, CustomTabPage? selectedTab, bool force)
         {
-            if (IsDisabled)
-                return;
-
             try
             {
+                if (IsDisabled)
+                    return;
+
                 var cacheRecords = new List<TabPageCacheRecord>();
                 foreach (var tab in tabs)
                 {

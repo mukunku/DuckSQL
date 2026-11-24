@@ -186,8 +186,8 @@ namespace DuckSQL
                 return;
             }
 
-            AppSettings.UserSelectedCulture = newCultureInfo;
-            UtilityMethods.RestartApplication();
+            //Only save the new culture if the restart goes through; closing can still be cancelled (e.g. unsaved tabs)
+            UtilityMethods.RestartApplication(() => AppSettings.UserSelectedCulture = newCultureInfo);
         }
 
         private void aboutToolStripMenuItem_Click(object _, EventArgs e)
