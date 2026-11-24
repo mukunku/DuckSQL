@@ -1,4 +1,5 @@
 ﻿using DuckSQL.Types;
+using System.Globalization;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -37,7 +38,7 @@ namespace DuckSQL.Helpers
         {
             ArgumentNullException.ThrowIfNull(name);
             _writer.WritePropertyName(name);
-            ApproximateStringLengthSoFar += name.Length + 1; // +1 for the colon ':'
+            ApproximateStringLengthSoFar += name.Length + 3; // +2 for the quotes, +1 for the colon ':'
         }
 
         private void WriteNullValue()
@@ -50,7 +51,7 @@ namespace DuckSQL.Helpers
         private void WriteStringValue(string value)
         {
             _writer.WriteStringValue(value);
-            ApproximateStringLengthSoFar += value.Length;
+            ApproximateStringLengthSoFar += value.Length + 2; // +2 for the quotes
             IncrementForComma();
         }
 
@@ -65,10 +66,69 @@ namespace DuckSQL.Helpers
             IncrementForComma();
         }
 
+        private void WriteNumberValue(long value)
+        {
+            _writer.WriteNumberValue(value);
+            IncrementForNumber(value);
+        }
+
+        /// <remarks>Throws for <see cref="float.NaN"/> and infinities, which JSON can't represent as numbers</remarks>
+        private void WriteNumberValue(float value)
+        {
+            _writer.WriteNumberValue(value);
+            IncrementForNumber(value);
+        }
+
+        /// <remarks>Throws for <see cref="double.NaN"/> and infinities, which JSON can't represent as numbers</remarks>
+        private void WriteNumberValue(double value)
+        {
+            _writer.WriteNumberValue(value);
+            IncrementForNumber(value);
+        }
+
         private void WriteNumberValue(decimal value)
         {
             _writer.WriteNumberValue(value);
-            ApproximateStringLengthSoFar += value.ToString().Length;
+            IncrementForNumber(value);
+        }
+
+        private void WriteNumberValue(ulong value)
+        {
+            _writer.WriteNumberValue(value);
+            IncrementForNumber(value);
+        }
+
+        /// <summary>
+        /// Writes any value whose type passes <see cref="ExtensionMethods.IsNumber(Type)"/>.
+        /// </summary>
+        private void WriteNumberValue(object value)
+        {
+            switch (value)
+            {
+                case double @double:
+                    if (double.IsFinite(@double))
+                        WriteNumberValue(@double);
+                    else
+                        WriteStringValue(@double.ToString(CultureInfo.InvariantCulture)); //JSON has no NaN or Infinity
+                    break;
+                case float @float:
+                    if (float.IsFinite(@float))
+                        WriteNumberValue(@float);
+                    else
+                        WriteStringValue(@float.ToString(CultureInfo.InvariantCulture)); //JSON has no NaN or Infinity
+                    break;
+                case decimal @decimal:
+                    WriteNumberValue(@decimal);
+                    break;
+                case ulong @ulong:
+                    WriteNumberValue(@ulong);
+                    break;
+                case sbyte or byte or short or ushort or int or uint or long:
+                    WriteNumberValue(Convert.ToInt64(value));
+                    break;
+                default:
+                    throw new ArgumentException($"'{value?.GetType()}' is not a number type", nameof(value));
+            }
         }
 
         private void WriteRawValue(string json)
@@ -93,6 +153,17 @@ namespace DuckSQL.Helpers
         //if a comma would be added to the json element or not. So we just always assume there is one :shrug:
         //E.g. { elem1: value, elem2: value } vs { elem1: value }
         private void IncrementForComma() => ApproximateStringLengthSoFar++;
+
+        //Formats into a stack buffer just to measure the length, so writing numbers doesn't allocate a string each time
+        private void IncrementForNumber<T>(T value) where T : ISpanFormattable
+        {
+            //No number should typically format longer than 32 chars (the longest is a decimal at 31)
+            Span<char> buffer = stackalloc char[32];
+            ApproximateStringLengthSoFar += value.TryFormat(buffer, out var charsWritten, default, CultureInfo.InvariantCulture)
+                ? charsWritten
+                : buffer.Length; //If formatting failed, assume the worst case
+            IncrementForComma();
+        }
 
         public void Dispose()
         {
@@ -120,7 +191,7 @@ namespace DuckSQL.Helpers
             }
             else if (value.GetType().IsNumber())
             {
-                WriteNumberValue(Convert.ToDecimal(value));
+                WriteNumberValue(value);
             }
             else if (value is IStructValue @struct)
             {
@@ -168,6 +239,10 @@ namespace DuckSQL.Helpers
             else if (value is DateOnly dateOnly)
             {
                 WriteStringValue(dateOnly.ToString(Env.DateOnlyFormat));
+            }
+            else if (value is TimeOnly timeOnly)
+            {
+                WriteStringValue(timeOnly.ToString(Env.TimeOnlyFormat));
             }
             else
             {

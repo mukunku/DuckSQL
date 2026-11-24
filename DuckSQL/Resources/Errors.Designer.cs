@@ -250,5 +250,14 @@ namespace DuckSQL.Resources {
                 return ResourceManager.GetString("TooManyColumnsErrorTitle", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to DuckSQL can&apos;t export to &apos;{0}&apos; files..
+        /// </summary>
+        internal static string UnsupportedExportFileTypeErrorMessageFormat {
+            get {
+                return ResourceManager.GetString("UnsupportedExportFileTypeErrorMessageFormat", resourceCulture);
+            }
+        }
     }
 }

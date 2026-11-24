@@ -8,7 +8,6 @@ namespace DuckSQL.Helpers
         private static readonly string _doubleLine = Environment.NewLine + Environment.NewLine;
         public static string DoubleNewLine => _doubleLine;
 
-
         private const string DefaultDateTimeFormat = "g";
         public const string ISO8601DateTimeFormat = "yyyy-MM-ddTHH:mm:ss.FFFFFFF";
         public static string DateTimeFormat => AppSettings.DateTimeDisplayFormat switch
@@ -26,6 +25,16 @@ namespace DuckSQL.Helpers
             DateFormat.Default => DefaultDateOnlyFormat,
             DateFormat.ISO8601 => ISO8601DateOnlyFormat,
             DateFormat.Custom => UtilityMethods.StripTimeComponentsFromDateFormat(AppSettings.CustomDateFormat) ?? DefaultDateOnlyFormat,
+            _ => string.Empty,
+        };
+
+        private const string DefaultTimeOnlyFormat = "T";
+        public const string ISO8601TimeOnlyFormat = "HH:mm:ss.FFFFFFF";
+        public static string TimeOnlyFormat => AppSettings.DateTimeDisplayFormat switch
+        {
+            DateFormat.Default => DefaultTimeOnlyFormat,
+            DateFormat.ISO8601 => ISO8601TimeOnlyFormat,
+            DateFormat.Custom => UtilityMethods.StripDateComponentsFromDateFormat(AppSettings.CustomDateFormat) ?? DefaultTimeOnlyFormat,
             _ => string.Empty,
         };
 
@@ -89,6 +98,49 @@ namespace DuckSQL.Helpers
             var assemblyVersionString = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? string.Empty;
             SemanticVersion.TryParse(assemblyVersionString, out var assemblyVersion);
             return assemblyVersion;
+        }
+        #endregion
+
+        #region Instance Management
+        private static Mutex? _operatingSystemLevelNamedMutex;
+        private static bool? _isPrimaryInstance;
+
+        /// <summary>
+        /// Claims the primary instance mutex if no other DuckSQL.exe holds it. Call once, on the UI thread, at startup.
+        /// The UI thread must also be the one that calls <see cref="TryReleasePrimaryInstance"/> since mutexes are owned by threads.
+        /// </summary>
+        public static void TryClaimPrimaryInstance()
+        {
+            if (_isPrimaryInstance is not null)
+                throw new InvalidOperationException("The primary instance was already claimed");
+
+            try
+            {
+                _operatingSystemLevelNamedMutex = new Mutex(false, @"Local\DuckSQL.SessionCache");
+                _isPrimaryInstance = _operatingSystemLevelNamedMutex.WaitOne(TimeSpan.Zero);
+            }
+            catch (AbandonedMutexException)
+            {
+                _isPrimaryInstance = true; //previous owner crashed; we own it now
+            }
+            catch (Exception)
+            {
+                _isPrimaryInstance = false;
+            }
+        }
+
+        /// <summary>
+        /// Whether this instance owns the session cache. Only valid after <see cref="TryClaimPrimaryInstance"/> has been called.
+        /// </summary>
+        public static bool IsPrimaryInstance() => _isPrimaryInstance
+            ?? throw new InvalidOperationException($"{nameof(TryClaimPrimaryInstance)}() hasn't been called yet");
+
+        public static void TryReleasePrimaryInstance()
+        {
+            if (_isPrimaryInstance == true)
+                _operatingSystemLevelNamedMutex?.ReleaseMutex();
+
+            _isPrimaryInstance = false;
         }
         #endregion
     }

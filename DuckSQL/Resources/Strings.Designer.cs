@@ -79,6 +79,24 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unsaved changes in {0} of the tabs you&apos;re closing will be lost. Are you sure you want to continue?.
+        /// </summary>
+        internal static string CloseDirtyTabsWarningMessageFormat {
+            get {
+                return ResourceManager.GetString("CloseDirtyTabsWarningMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Are you sure you want to close this tab? Any unsaved changes will be lost..
+        /// </summary>
+        internal static string CloseDirtyTabWarningMessage {
+            get {
+                return ResourceManager.GetString("CloseDirtyTabWarningMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Close other tabs.
         /// </summary>
         internal static string CloseOtherTabsText {
@@ -252,15 +270,6 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Restart ParquetViewer?.
-        /// </summary>
-        internal static string LanguageChangeConfirmationTitle {
-            get {
-                return ResourceManager.GetString("LanguageChangeConfirmationTitle", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to New query.
         /// </summary>
         internal static string NewQueryTabTitle {
@@ -333,6 +342,24 @@ namespace DuckSQL.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Restart DuckSQL?.
+        /// </summary>
+        internal static string RestartApplicationConfirmationTitle {
+            get {
+                return ResourceManager.GetString("RestartApplicationConfirmationTitle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This window isn&apos;t saving its session, so {0} unsaved tab(s) will be lost. Do you want to continue?.
+        /// </summary>
+        internal static string NoSessionUnsavedTabsWarningMessageFormat {
+            get {
+                return ResourceManager.GetString("NoSessionUnsavedTabsWarningMessageFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Save image as {0}.
         /// </summary>
         internal static string SaveImageAsButtonText {
@@ -376,6 +403,15 @@ namespace DuckSQL.Resources {
         internal static string TypeText {
             get {
                 return ResourceManager.GetString("TypeText", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsaved changes detected.
+        /// </summary>
+        internal static string UnsavedChangesWarningTitle {
+            get {
+                return ResourceManager.GetString("UnsavedChangesWarningTitle", resourceCulture);
             }
         }
     }

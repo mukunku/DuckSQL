@@ -37,7 +37,7 @@ OFFSET {3} ";
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-        public string? CurrentFilePath { get; set; }
+        public string? LastExecutedQuery { get; private set; }
 
         public QueryEditorControl()
         {
@@ -60,22 +60,43 @@ OFFSET {3} ";
                 OnDragDrop(args);
             };
             AllowDrop = true;
+            Disposed += (s, args) => _queryCancellationToken?.Cancel(); //Closing a tab disposes its editor, so stop any running query instead of letting it finish against disposed controls
         }
 
-        public QueryEditorControl(string filePath, int offset = 0, int limit = 1000) : this()
+        /// <summary>Builds the default query used to preview a data file or folder.</summary>
+        public static string BuildSelectQuery(string filePath, int offset = 0, int limit = 1000)
         {
-            if (Path.GetExtension(filePath).Equals(".sql"))
+            var queryFields = "*";
+            var source = Directory.Exists(filePath) ? BuildFolderGlob(filePath) : filePath;
+            var fromClause = $"'{source.Replace("'", "''")}'";
+            return QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
+        }
+
+        /// <summary>
+        /// DuckDB can't read a folder path directly, so turn it into a recursive glob over the first queryable
+        /// data file type found inside, e.g. "folder\**\*.parquet". This also picks up hive partitioned folders.
+        /// </summary>
+        private static string BuildFolderGlob(string folderPath)
+        {
+            string extension = FileType.PARQUET.GetExtension(); //no data files found: DuckDB then reports that nothing matched the pattern
+            try
             {
-                var fileContent = File.ReadAllText(filePath);
-                QueryText = fileContent;
+                var firstDataFileExtension = Directory.EnumerateFiles(folderPath, "*", new EnumerationOptions
+                    {
+                        RecurseSubdirectories = true,
+                        IgnoreInaccessible = true,
+                    })
+                    .Select(Path.GetExtension)
+                    .FirstOrDefault(fileExtension => UtilityMethods.ExtensionToFileType(fileExtension ?? string.Empty) is { } fileType
+                        && fileType != FileType.XLS); //DuckDB has no .xls reader
+
+                if (firstDataFileExtension is not null)
+                    extension = firstDataFileExtension.ToLowerInvariant();
             }
-            else
-            {
-                var queryFields = "*";
-                var fromClause = $"'{filePath}'";
-                QueryText = QUERY_FORMAT.Format(queryFields, fromClause, limit, offset);
-            }
-            executeQueryButton.Enabled = true;
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+
+            return Path.Combine(folderPath, "**", "*" + extension);
         }
 
         private void QueryEditorControl_Load(object sender, EventArgs e)
@@ -108,17 +129,23 @@ OFFSET {3} ";
                     connection.Open();
 
                     using var command = connection.CreateCommand();
+                    using var _ = cancellationToken.Register(() =>
+                    {
+                        command.Cancel();
+                    });
+
                     command.CommandText = query;
-
                     using var reader = command.ExecuteReader();
-                    result.Load(reader);
 
+                    cancellationToken.ThrowIfCancellationRequested();
+                    result.Load(reader);
                     cancellationToken.ThrowIfCancellationRequested();
                 }, cancellationToken);
             }
             catch (OperationCanceledException)
             {
-                return result;
+                result.Dispose();
+                throw;
             }
             catch (Exception ex)
             {
@@ -155,6 +182,9 @@ OFFSET {3} ";
             if (string.IsNullOrWhiteSpace(this.queryRichTextBox.Text))
                 return;
 
+            var query = this.queryRichTextBox.Text;
+            LastExecutedQuery = null;
+
             //Cleanup previous results
             if (this.resultsGridView.DataSource is DataTable dt)
             {
@@ -171,8 +201,9 @@ OFFSET {3} ";
             resultsGridView.Enabled = false;
             cancelQueryButton.Enabled = true;
 
-            var stopwatch = Stopwatch.StartNew();
-            var queryTask = ExecuteQueryAsync(this.queryRichTextBox.Text, _queryCancellationToken.Token);
+            var totalStopwatch = Stopwatch.StartNew(); //What we show the user: query + conversion + rendering
+            var stopwatch = Stopwatch.StartNew(); //Times each step separately for analytics
+            var queryTask = ExecuteQueryAsync(query, _queryCancellationToken.Token);
 
             while (!queryTask.IsCompleted && !_queryCancellationToken.IsCancellationRequested)
             {
@@ -187,6 +218,7 @@ OFFSET {3} ";
             {
                 if (_queryCancellationToken.IsCancellationRequested)
                 {
+                    //Return without waiting for the queryTask to cancel to improve responsiveness
                     return;
                 }
 
@@ -206,11 +238,24 @@ OFFSET {3} ";
                 var conversionDuration = stopwatch.Elapsed;
 
                 stopwatch.Restart();
+
+                //Binding the grid creates the table's DefaultView, which indexes every row. Create it here so that
+                //work happens on a background thread instead of freezing the UI thread.
+                await Task.Run(() => _ = result.DefaultView);
+
+                //Building the index can't be interrupted, so honor a cancel that came in while it was running even though we did all the work already
+                _queryCancellationToken.Token.ThrowIfCancellationRequested();
+
                 this.resultsGridView.DataSource = result;
                 stopwatch.Stop();
                 var renderDuration = stopwatch.Elapsed;
 
+                LastExecutedQuery = query;
                 QueryExecuted?.Invoke(this, new QueryExecutedEventArgs(queryDuration, conversionDuration, renderDuration));
+            }
+            catch (OperationCanceledException)
+            {
+                return;
             }
             catch (QueryExecuteException ex)
             {
@@ -230,15 +275,19 @@ OFFSET {3} ";
             }
             finally
             {
-                queryExecutionStatusLabel.Text = _queryCancellationToken.IsCancellationRequested ?
-                    Resources.Strings.QueryCancelledStatusText : Resources.Strings.QueryFinishedStatusText;
-                timeElapsedLabel.Text = stopwatch.Elapsed.ToString("mm\\:ss");
-                showingCountLabel.Text = result.Rows.Count.ToString();
+                //The tab may have been closed (and this control disposed) while the query was running
+                if (!IsDisposed)
+                {
+                    queryExecutionStatusLabel.Text = _queryCancellationToken.IsCancellationRequested ?
+                        Resources.Strings.QueryCancelledStatusText : Resources.Strings.QueryFinishedStatusText;
+                    timeElapsedLabel.Text = totalStopwatch.Elapsed.ToString("mm\\:ss");
+                    showingCountLabel.Text = result.Rows.Count.ToString();
 
-                executeQueryButton.Enabled = true;
-                resultsGridView.Enabled = true;
-                cancelQueryButton.Enabled = false;
-                Cursor = Cursors.Default;
+                    executeQueryButton.Enabled = true;
+                    resultsGridView.Enabled = true;
+                    cancelQueryButton.Enabled = false;
+                    Cursor = Cursors.Default;
+                }
             }
         }
 
@@ -469,20 +518,12 @@ OFFSET {3} ";
             if (fileName is null)
                 return false;
 
-            var extension = Path.GetExtension(fileName);
-
-            if (extension.Equals(".sql"))
+            if (UtilityMethods.IsSqlFile(fileName))
                 return true;
 
-            foreach (var fileType in Enum.GetValues<FileType>())
-            {
-                if (fileType.GetExtension().Equals(extension))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            var extension = Path.GetExtension(fileName);
+            var fileType = UtilityMethods.ExtensionToFileType(extension);
+            return fileType is not null;
         }
 
         internal class QueryExecutedEventArgs : EventArgs

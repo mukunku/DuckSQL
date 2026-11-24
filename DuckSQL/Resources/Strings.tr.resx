@@ -159,8 +159,11 @@
   <data name="LanguageChangeConfirmationMessage" xml:space="preserve">
     <value>Dili değiştirmek için uygulamanın yeniden başlatılmasi gerekiyor. Devam etmek ister misiniz?</value>
   </data>
-  <data name="LanguageChangeConfirmationTitle" xml:space="preserve">
-    <value>ParquetViewer'ı yeniden başlat?</value>
+  <data name="RestartApplicationConfirmationTitle" xml:space="preserve">
+    <value>DuckSQL'i yeniden başlat?</value>
+  </data>
+  <data name="NoSessionUnsavedTabsWarningMessageFormat" xml:space="preserve">
+    <value>Bu pencere oturumunu kaydetmiyor, bu yüzden kaydedilmemiş {0} sekme kaybolacak. Devam etmek istiyor musun?</value>
   </data>
   <data name="NewQueryTabTitle" xml:space="preserve">
     <value>Yeni sorgu</value>
@@ -225,5 +228,14 @@ Onun yerine sonuçlari {2} dosyasına aktarmak ister misiniz?</value>
   </data>
   <data name="OpenQueryLocationText" xml:space="preserve">
     <value>Sorgu konumunu aç</value>
+  </data>
+  <data name="CloseDirtyTabWarningMessage" xml:space="preserve">
+    <value>Bu sekmeyi kapatmak istediğinden emin misin? Kaydedilmemiş değişiklikler kaybolacak.</value>
+  </data>
+  <data name="CloseDirtyTabsWarningMessageFormat" xml:space="preserve">
+    <value>Kapattığın sekmelerden {0} tanesindeki kaydedilmemiş değişiklikler kaybolacak. Devam etmek istediğinden emin misin?</value>
+  </data>
+  <data name="UnsavedChangesWarningTitle" xml:space="preserve">
+    <value>Kaydedilmemiş değişiklikler algılandı</value>
   </data>
 </root>

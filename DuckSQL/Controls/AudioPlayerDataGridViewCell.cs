@@ -2,7 +2,6 @@
 using DuckSQL.Analytics;
 using DuckSQL.Helpers;
 using DuckSQL.Types;
-using NAudio.FileFormats.Wav;
 using NAudio.Wave;
 
 namespace DuckSQL.Controls
@@ -63,7 +62,7 @@ namespace DuckSQL.Controls
                         this._audioFormat = audioFormat;
 
                         //Prepare output device
-                        this._audioPlayer = new WaveOutEvent();
+                        this._audioPlayer = new WaveOut();
 
                         this._audioPlayer.Init(this._audioStream);
                         this._audioPlayer.PlaybackStopped += OnPlaybackStopped;
@@ -458,8 +457,7 @@ namespace DuckSQL.Controls
             using var ms = new MemoryStream(data);
             try
             {
-                var wavReader = new WaveFileChunkReader();
-                wavReader.ReadWaveHeader(ms);
+                using var reader = new WaveFileReader(ms);
                 audioFormat = AudioFormat.Wav;
                 return true;
             }

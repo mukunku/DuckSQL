@@ -1,8 +1,8 @@
 using DuckSQL.Analytics;
 using DuckSQL.Exceptions;
+using DuckSQL.Helpers;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Text.Json;
 
 namespace DuckSQL.Controls
 {
@@ -13,21 +13,24 @@ namespace DuckSQL.Controls
         private bool _isMouseLeftButtonDown = false;
         private int _rightClickedTabIndex = -1;
         private static int _newQueryCount = 0;
+        private readonly Dictionary<Font, Font> _boldFontCache = []; //Selected tab titles are drawn in bold. Cached so we don't create a font on every repaint
 
         #region Context Menu
-        private ContextMenuStrip _rightClickTabContextMenuStrip = new();
-        private ToolStripMenuItem _closeTabToolStripMenuItem = new() { Text = Resources.Strings.CloseTabText };
-        private ToolStripMenuItem _closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
-        private ToolStripMenuItem _closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
-        private ToolStripSeparator firstToolStripSeparator = new();
-        private ToolStripMenuItem _openQueryLocationToolStripMenuItem = new() { Text = Resources.Strings.OpenQueryLocationText };
+        private readonly ContextMenuStrip _rightClickTabContextMenuStrip = new();
+        private readonly ToolStripMenuItem _closeTabToolStripMenuItem = new() { Text = Resources.Strings.CloseTabText };
+        private readonly ToolStripMenuItem _closeOtherTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseOtherTabsText };
+        private readonly ToolStripMenuItem _closeAllTabsToolStripMenuItem = new() { Text = Resources.Strings.CloseAllTabsText };
+        private readonly ToolStripSeparator _firstToolStripSeparator = new();
+        private readonly ToolStripMenuItem _openQueryLocationToolStripMenuItem = new() { Text = Resources.Strings.OpenQueryLocationText };
         #endregion
 
         #region Drag & Drop
         private int? _dragStartTabIndex = null;
         private int? _dragStopTabIndex = null;
+        private Point _dragStartLocation = Point.Empty;
         #endregion
 
+        #region Events
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? QueryExecutionStarted { get; set; }
 
@@ -36,16 +39,11 @@ namespace DuckSQL.Controls
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Visible)]
         public EventHandler? TabDirtyStateChanged { get; set; }
+        #endregion
 
         #region Session Caching
-        private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = true, Interval = 1000 };
-        private int _lastCacheHashCode = 0;
-        private string _cachePath = CacheFilePath;
-
-        private const string CACHE_FILE_NAME = "DUCKSQL_QUERY_CACHE.json";
-        private const string CACHE_BACKUP_FILE_NAME = "DUCKSQL_QUERY_BACKUP_CACHE.json";
-        private static string CacheFilePath => Path.Combine(Path.GetTempPath(), CACHE_FILE_NAME);
-        private static string CacheBackupFilePath => Path.Combine(Path.GetTempPath(), CACHE_BACKUP_FILE_NAME);
+        private System.Windows.Forms.Timer _cacheOpenTabsTimer = new() { Enabled = false, Interval = 1000 };
+        private readonly SessionCache _sessionCache = new();
         #endregion
 
         public CustomTabControl()
@@ -53,7 +51,7 @@ namespace DuckSQL.Controls
             DrawMode = TabDrawMode.OwnerDrawFixed;
             _rightClickTabContextMenuStrip.Items.AddRange(
                 [_closeTabToolStripMenuItem, _closeOtherTabsToolStripMenuItem, _closeAllTabsToolStripMenuItem,
-                firstToolStripSeparator, _openQueryLocationToolStripMenuItem]);
+                _firstToolStripSeparator, _openQueryLocationToolStripMenuItem]);
             _closeTabToolStripMenuItem.Click += closeTabToolStripMenuItem_Click;
             _closeOtherTabsToolStripMenuItem.Click += closeOtherTabsToolStripMenuItem_Click;
             _closeAllTabsToolStripMenuItem.Click += closeAllTabsToolStripMenuItem_Click;
@@ -70,45 +68,34 @@ namespace DuckSQL.Controls
                 if (TabPages.Count != 1)
                     throw new InvalidOperationException("Session can only be resumed on startup");
 
-                var mainCacheFileLastWriteTime = File.Exists(CacheFilePath) ? File.GetLastWriteTime(CacheFilePath) : DateTime.MinValue;
-                var backupCacheFileLastWriteTime = File.Exists(CacheBackupFilePath) ? File.GetLastWriteTime(CacheBackupFilePath) : DateTime.MinValue;
-
-                if (mainCacheFileLastWriteTime == DateTime.MinValue && backupCacheFileLastWriteTime == DateTime.MinValue)
+                var session = _sessionCache.Load();
+                if (session is null)
                     return; //nothing to restore
 
-                string cacheFileToUsePath;
-                if (mainCacheFileLastWriteTime > backupCacheFileLastWriteTime)
-                    cacheFileToUsePath = CacheFilePath;
-                else
-                    cacheFileToUsePath = CacheBackupFilePath;
-
-                var cacheDetails = JsonSerializer.Deserialize<TabControlCacheRecord>(File.ReadAllText(cacheFileToUsePath));
-
-                if (cacheDetails is null || cacheDetails.Records.Length == 0)
-                    return;
-
-                if (cacheDetails.Records.Length == 1 && cacheDetails.Records[0].Title.StartsWith(Resources.Strings.NewQueryTabTitle))
-                    return; //Only one empty query tab, nothing to restore
-
-                TabPage? selectedTab = null;
-                foreach (var cachedTab in cacheDetails.Records)
+                foreach (var tab in session.Tabs)
                 {
-                    var filePathOrQueryText = cachedTab.Tag;
-                    var restoredTab = RestoreTab(cachedTab.Title, filePathOrQueryText);
-                    if (cachedTab.IsSelectedTab)
-                        selectedTab = restoredTab;
+                    AddTab(tab);
                 }
 
-                if (selectedTab is not null)
-                    SelectedTab = selectedTab;
+                if (session.SelectedTab is not null)
+                    SelectedTab = session.SelectedTab;
 
-                _newQueryCount = cacheDetails.NewQueryCount;
+                //Continue numbering after the highest "New query N" that's actually open, instead of wherever the last session's counter got to
+                _newQueryCount = session.Tabs
+                    .Where(tab => !tab.IsFileBackedTab)
+                    .Select(tab => tab.ScratchNumber)
+                    .DefaultIfEmpty(0)
+                    .Max();
 
                 TabPages.RemoveAt(0); //Remove the default empty query tab
             }
             catch (Exception ex)
             {
                 throw new SessionResumeFailedException("Failed to resume your last session.", ex);
+            }
+            finally
+            {
+                _cacheOpenTabsTimer.Start();
             }
         }
 
@@ -144,7 +131,16 @@ namespace DuckSQL.Controls
                 closeButtonRectangle.Height);
 
             var isSelected = SelectedIndex == e.Index;
-            var font = isSelected ? new Font(tabPage.Font, FontStyle.Bold) : tabPage.Font;
+            var font = tabPage.Font;
+            if (isSelected)
+            {
+                if (!_boldFontCache.TryGetValue(tabPage.Font, out var boldFont))
+                {
+                    boldFont = new Font(tabPage.Font, FontStyle.Bold);
+                    _boldFontCache.Add(tabPage.Font, boldFont);
+                }
+                font = boldFont;
+            }
 
             TextRenderer.DrawText(e.Graphics, tabPage.Text, font,
                 tabRect, tabPage.ForeColor, TextFormatFlags.Left);
@@ -180,24 +176,12 @@ namespace DuckSQL.Controls
             #endregion
 
             #region Drag/Drop reordering effect
-            if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null)
+            if (e.Button == MouseButtons.Left && _dragStartTabIndex is not null && HasMovedPastDragThreshold(e.Location))
             {
                 DoDragDrop(TabPages[_dragStartTabIndex.Value], DragDropEffects.Move);
-            }
-            #endregion
 
-            #region File path tooltip
-            if (tabIndex is not null)
-            {
-                var hoveredTab = (CustomTabPage)TabPages[tabIndex.Value];
-                if (hoveredTab.IsFileBackedTab && tabIndex is not null && closeButtonHoveredTabIndex is null)
-                {
-                    var filePath = hoveredTab.Tag as string;
-                    if (!string.IsNullOrWhiteSpace(filePath)) //just for extra safety
-                    {
-                        hoveredTab.ToolTipText = filePath;
-                    }
-                }
+                //DoDragDrop swallows the mouse up, so OnMouseUp won't reset these for us
+                ResetTabDragState();
             }
             #endregion
         }
@@ -219,6 +203,23 @@ namespace DuckSQL.Controls
             }
 
             _dragStartTabIndex = CursorHoverTabIndex(e.Location);
+            _dragStartLocation = e.Location;
+        }
+
+        //Only start dragging once the mouse moves far enough, so normal clicks with a slight wiggle don't start a drag.
+        private bool HasMovedPastDragThreshold(Point cursorLocation)
+        {
+            //Use the default Windows drag threshold (4px)
+            var dragSize = SystemInformation.DragSize;
+
+            //Center the rectangle on the drag start location
+            var dragThreshold = new Rectangle(
+                _dragStartLocation.X - dragSize.Width / 2,
+                _dragStartLocation.Y - dragSize.Height / 2,
+                dragSize.Width, dragSize.Height);
+
+            //Confirm the cursor has left that rectangle
+            return !dragThreshold.Contains(cursorLocation);
         }
 
         protected override void OnDragOver(DragEventArgs e)
@@ -249,6 +250,15 @@ namespace DuckSQL.Controls
                 return;
 
             MoveTab(_dragStartTabIndex.Value, _dragStopTabIndex.Value);
+
+            //Otherwise a later file drop onto a query editor (which gets relayed here) would move the tab again
+            ResetTabDragState();
+        }
+
+        private void ResetTabDragState()
+        {
+            _dragStartTabIndex = null;
+            _dragStopTabIndex = null;
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
@@ -272,11 +282,11 @@ namespace DuckSQL.Controls
                 {
                     _rightClickedTabIndex = tabIndex.Value;
 
-                    firstToolStripSeparator.Visible = false;
+                    _firstToolStripSeparator.Visible = false;
                     _openQueryLocationToolStripMenuItem.Visible = false;
                     if (TabPages[_rightClickedTabIndex] is CustomTabPage ctp && ctp.IsFileBackedTab)
                     {
-                        firstToolStripSeparator.Visible = true;
+                        _firstToolStripSeparator.Visible = true;
                         _openQueryLocationToolStripMenuItem.Visible = true;
                     }
 
@@ -336,34 +346,74 @@ namespace DuckSQL.Controls
             );
         }
 
-        public int CreateNewTab(string? queryTextOrFilePath = null, bool skipTabCountIncrement = false)
+        /// <summary>
+        /// Switches to an existing empty query tab, or creates a new one if there isn't one.
+        /// </summary>
+        public void NewQuery()
+        {
+            for (var i = 0; i < TabCount; i++)
+            {
+                if (IsEmptyQueryEditor(i))
+                {
+                    SelectedIndex = i;
+                    return;
+                }
+            }
+
+            SelectedIndex = CreateTab();
+        }
+
+        /// <summary>
+        /// Opens each path in its own tab and selects the last one. Already open .sql files are switched to instead.
+        /// </summary>
+        /// <param name="paths">.sql files to open, or data files/folders to generate a SELECT query for</param>
+        public void OpenFilesOrFolders(params string[] paths)
+        {
+            if (paths.Length == 0)
+                return;
+
+            //An empty query tab at the end gets replaced by the opened files, so the first new query tab can reuse its name
+            var emptyLastTab = TabCount > 0 && IsEmptyQueryEditor(TabCount - 1) ? (CustomTabPage)TabPages[TabCount - 1] : null;
+            var tabCountBefore = TabCount;
+
+            var tabIndex = -1;
+            for (var i = 0; i < paths.Length; i++)
+            {
+                var scratchNumber = i == 0 ? emptyLastTab?.ScratchNumber : null;
+                tabIndex = CreateTab(paths[i], scratchNumber);
+            }
+            SelectedIndex = tabIndex;
+
+            //Only replace the empty tab if we actually opened something new and didn't switch to an open file
+            if (emptyLastTab is not null && TabCount > tabCountBefore)
+                TabPages.Remove(emptyLastTab);
+        }
+
+        /// <param name="filePath">A .sql file to open, or a data file/folder to generate a SELECT query for</param>
+        /// <param name="scratchNumber">Number to use in the "New query N" title. Defaults to the next number.</param>
+        /// <returns>The index of the new tab, or of the existing tab if the .sql file is already open</returns>
+        private int CreateTab(string? filePath = null, int? scratchNumber = null)
         {
             var hasNoTabs = TabCount == 0;
 
-            var tabName = Resources.Strings.NewQueryTabTitle;
-            var isFileBackedTab = false;
-
-            try
+            CustomTabPage newTab;
+            if (File.Exists(filePath) && UtilityMethods.IsSqlFile(filePath))
             {
-                //Not sure if try..catch is required here, adding it for safety.
-                if (File.Exists(queryTextOrFilePath) && Path.GetExtension(queryTextOrFilePath)?.Equals(".sql") == true)
-                {
-                    tabName = Path.GetFileName(queryTextOrFilePath);
-                    isFileBackedTab = true;
-                    skipTabCountIncrement = true;
-                }
+                //Don't open the same file twice, return the existing tab instead
+                var existingTab = TabPages.OfType<CustomTabPage>()
+                    .FirstOrDefault(tab => string.Equals(tab.FilePath, filePath, StringComparison.OrdinalIgnoreCase));
+                if (existingTab is not null)
+                    return TabPages.IndexOf(existingTab);
+
+                newTab = CustomTabPage.ForSqlFile(filePath);
             }
-            catch { /*swallow*/ }
-
-            if (!skipTabCountIncrement)
-                _newQueryCount++;
-
-            if (_newQueryCount > 1 && !isFileBackedTab)
+            else
             {
-                tabName += $" {_newQueryCount}";
+                var number = scratchNumber ?? ++_newQueryCount;
+                newTab = filePath is null ? CustomTabPage.ForScratch(number) : CustomTabPage.ForDataSource(number, filePath);
             }
 
-            CreateNewTabInternal(tabName, queryTextOrFilePath);
+            AddTab(newTab);
 
             if (hasNoTabs)
             {
@@ -373,52 +423,20 @@ namespace DuckSQL.Controls
             return TabCount - 1;
         }
 
-        public CustomTabPage RestoreTab(string title, string tag) => CreateNewTabInternal(title, tag);
-
-        private CustomTabPage CreateNewTabInternal(string title, string? tag)
-        {
-            var newTab = new CustomTabPage();
-            newTab.Text = title;
-            newTab.Tag = tag;
-            TabPages.Add(newTab);
-
-            return newTab;
-        }
-
         public CustomTabPage GetSelectedTab() => (CustomTabPage)(SelectedTab ?? throw new InvalidOperationException("No selected tab found"));
 
-        public int? FindEmptyQueryEditorTabIndex()
-        {
-            for (var i = 0; i < TabCount; i++)
-            {
-                if (IsEmptyQueryEditor(i))
-                {
-                    return i;
-                }
-            }
-            return null;
-        }
+        public IEnumerable<CustomTabPage> GetTabs() => TabPages.Cast<CustomTabPage>();
 
         /// <summary>
-        /// Checks if the query editor is "empty". 
-        /// Meaning it has our <see cref="Resources.Strings.NewQueryTabTitle"/> title, no file path, and no query text.
+        /// Checks if the query editor is "empty". Meaning it's a scratch tab with no query text.
         /// </summary>
-        /// <returns></returns>
-        public bool IsEmptyQueryEditor(int tabIndex)
+        private bool IsEmptyQueryEditor(int tabIndex)
         {
             if (tabIndex >= TabCount)
                 throw new ArgumentOutOfRangeException(nameof(tabIndex));
 
             var tab = (CustomTabPage)TabPages[tabIndex];
-            if (tab.Controls.Count == 0 || tab.Controls[0] is not QueryEditorControl queryEditor)
-            {
-                return tab.Tag is null; //Tag won't be null for empty query editors
-            }
-
-            var hasQueryText = !string.IsNullOrWhiteSpace(queryEditor.QueryText);
-            var hasFilePath = !string.IsNullOrWhiteSpace(queryEditor.CurrentFilePath);
-
-            return tab.HasNewQueryTitle && !hasQueryText && !hasFilePath;
+            return !tab.IsFileBackedTab && string.IsNullOrWhiteSpace(tab.CurrentText);
         }
 
         protected override void OnSelectedIndexChanged(EventArgs e)
@@ -428,50 +446,22 @@ namespace DuckSQL.Controls
             if (SelectedTab is not CustomTabPage selectedTab)
                 return;
 
-            if (selectedTab.Controls.Count == 0)
-            {
-                //Lazily initialize the query editor
-                QueryEditorControl queryEditor;
-                var filePathOrQueryText = selectedTab.Tag?.ToString();
-                if (!string.IsNullOrWhiteSpace(filePathOrQueryText))
-                {
-                    if (File.Exists(filePathOrQueryText) || Directory.Exists(filePathOrQueryText))
-                    {
-                        queryEditor = new QueryEditorControl(filePathOrQueryText) { Dock = DockStyle.Fill };
-                    }
-                    else
-                    {
-                        queryEditor = new()
-                        {
-                            Dock = DockStyle.Fill,
-                            QueryText = filePathOrQueryText
-                        };
-                    }
-                }
-                else
-                {
-                    queryEditor = new QueryEditorControl { Dock = DockStyle.Fill };
-                }
-
-                AttachEventHandlers(queryEditor, selectedTab);
-                selectedTab.Controls.Add(queryEditor);
-                queryEditor.Focus();
-            }
-            else
-            {
-                var queryEditor = (QueryEditorControl)SelectedTab.Controls[0];
+            //New editors refresh themselves on Load, so only existing ones need it (e.g. to pick up setting changes)
+            var isExistingEditor = selectedTab.HasQueryEditor();
+            var queryEditor = selectedTab.GetOrCreateQueryEditor();
+            if (isExistingEditor)
                 queryEditor.RefreshControl();
-                queryEditor.Focus();
-            }
+
+            queryEditor.Focus();
         }
 
         //Returns false if the user cancels closing dirty tabs, true otherwise
         public bool CloseTabs(int[] tabIndexes)
         {
             //Check if there are any dirty tabs being closed
-            var dirtyTabCount = tabIndexes.Count(i => TabPages[i].Text.Contains('*')); //file paths can't have '*' in them in Windows so this check should work fine
-            if (dirtyTabCount > 0 &&MessageBox.Show($"Are you sure you want to close {dirtyTabCount} {(dirtyTabCount == 1? "tab" : "tabs")} with pending edits? Any unsaved changes will be lost.", "Unsaved changes detected",
-                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
+            var dirtyTabCount = tabIndexes.Count(i => ((CustomTabPage)TabPages[i]).IsDirty);
+            if (dirtyTabCount > 0 && MessageBox.Show(Resources.Strings.CloseDirtyTabsWarningMessageFormat.Format(dirtyTabCount),
+                    Resources.Strings.UnsavedChangesWarningTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
                 return false;
             }
@@ -480,7 +470,7 @@ namespace DuckSQL.Controls
             foreach (var tabIndex in tabIndexes.OrderByDescending(i => i))
             {
                 if (tabIndex < 0 || tabIndex >= TabCount)
-                    throw new ArgumentOutOfRangeException(nameof(tabIndex));
+                    throw new ArgumentOutOfRangeException(nameof(tabIndexes));
 
                 //Check if there's anything left to close
                 if (TabCount == 1 && IsEmptyQueryEditor(0))
@@ -493,7 +483,7 @@ namespace DuckSQL.Controls
 
             if (TabCount == 0)
             {
-                CreateNewTab();
+                CreateTab();
             }
 
             //Last tab should be focused
@@ -515,18 +505,23 @@ namespace DuckSQL.Controls
                 return;
             }
 
-            var isDirty = TabPages[tabIndex].Text.Contains('*');
-            if (isDirty && MessageBox.Show("Are you sure you want to close this tab? Any unsaved changes will be lost.", "Unsaved changes detected",
+            var isDirty = ((CustomTabPage)TabPages[tabIndex]).IsDirty;
+            if (isDirty && MessageBox.Show(Resources.Strings.CloseDirtyTabWarningMessage, Resources.Strings.UnsavedChangesWarningTitle,
                     MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK)
             {
+                _closeButtonHoveredTabIndex = null; //The dialog took over focus
+                Invalidate();
                 return;
             }
 
             TabPages.RemoveAt(tabIndex);
 
+            //Tabs shifted, so the remembered hover index may now point at a different tab. Recheck against the real cursor position.
+            _closeButtonHoveredTabIndex = CursorHoverCloseTabButtonIndex(PointToClient(Cursor.Position));
+
             if (TabCount == 0)
             {
-                CreateNewTab();
+                CreateTab();
             }
 
             //Last tab should be focused
@@ -535,51 +530,20 @@ namespace DuckSQL.Controls
             Invalidate();
         }
 
-        private void AttachEventHandlers(QueryEditorControl queryEditor, CustomTabPage tab)
+        //All tabs must be added through here so their events get relayed
+        private void AddTab(CustomTabPage tab)
         {
-            //Handle new tab title styling
-            queryEditor.QueryTextChanged += (s, args) =>
-            {
-                var hasModifiedIndicator = tab.Text.Trim().EndsWith('*');
+            tab.DirtyStateChanged += (s, args) => TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
+            tab.QueryExecuted += (s, args) => QueryExecuted?.Invoke(s, args);
+            tab.QueryExecutionStarted += (s, args) => QueryExecutionStarted?.Invoke(s, args);
+            tab.DragDrop += (s, args) => OnDragDrop(args);
+            TabPages.Add(tab);
+        }
 
-                if (tab.IsFileBackedTab)
-                {
-                    //This is a file backed tab. Any changes should make the tab dirty
-                    if (!hasModifiedIndicator)
-                    {
-                        tab.Text = tab.Text.Trim() + " *";
-                        Invalidate();
-                        TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-                    }
-                    return;
-                }
-
-                var isEmpty = string.IsNullOrWhiteSpace(queryEditor.QueryText);
-                if (hasModifiedIndicator && isEmpty)
-                {
-                    tab.Text = tab.Text.Replace("*", string.Empty).Trim();
-                    Invalidate();
-                    TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-                }
-                else if (!hasModifiedIndicator && !isEmpty)
-                {
-                    tab.Text = tab.Text.Trim() + " *";
-                    Invalidate();
-                    TabDirtyStateChanged?.Invoke(this, EventArgs.Empty);
-                }
-            };
-            queryEditor.QueryExecuted += (s, args) =>
-            {
-                QueryExecuted?.Invoke(s, args);
-            };
-            queryEditor.QueryExecutionStarted += (s, args) =>
-            {
-                QueryExecutionStarted?.Invoke(s, args);
-            };
-            queryEditor.DragDrop += (s, args) =>
-            {
-                OnDragDrop(args);
-            };
+        protected override void OnControlRemoved(ControlEventArgs e)
+        {
+            base.OnControlRemoved(e);
+            e.Control?.Dispose(); //Dispose any removed tabs to free resources
         }
 
         private void closeTabToolStripMenuItem_Click(object? sender, EventArgs e)
@@ -614,7 +578,7 @@ namespace DuckSQL.Controls
         private void openQueryLocationToolStripMenuItem_Click(object? sender, EventArgs e)
         {
             if (TabPages[_rightClickedTabIndex] is CustomTabPage ctp
-                    && ctp.Tag is string path
+                    && ctp.FilePath is string path
                     && Path.Exists(path)
                     && Path.GetDirectoryName(path) is string dir)
             {
@@ -644,79 +608,36 @@ namespace DuckSQL.Controls
                 return;
             }
             TabPages[targetTabIndex] = tabToBeMoved;
+            Controls.SetChildIndex(tabToBeMoved, targetTabIndex); //keep Controls in the same order as TabPages, or RemoveAt(index) removes the wrong tab
             SelectedTab = tabToBeMoved;
             Refresh();
         }
 
-        private async void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
+        protected override void Dispose(bool disposing)
         {
-            _cacheOpenTabsTimer.Stop();
-            try
+            if (disposing)
             {
-                var cacheRecords = new List<TabPageCacheRecord>();
-                foreach (TabPage page in TabPages)
+                foreach (var font in _boldFontCache.Values)
                 {
-                    if (page is CustomTabPage ctp)
-                    {
-                        var tag = page.Tag as string;
-                        if (!ctp.IsFileBackedTab && ctp.HasQueryEditor())
-                        {
-                            var queryEditor = ctp.GetQueryEditor();
-                            tag = queryEditor.QueryText;
-                        }
-
-                        if (tag is null)
-                            continue;
-
-                        cacheRecords.Add(new(tag, page.Text.Trim(), SelectedTab == page));
-                    }
+                    font.Dispose();
                 }
-
-                if (cacheRecords.Count > 0)
-                {
-                    //Check if anything changed, including the currently selected tab
-                    var tabCacheHash = new HashCode();
-                    tabCacheHash.Add(SelectedIndex);
-
-                    foreach (var cacheRecord in cacheRecords)
-                    {
-                        tabCacheHash.Add(cacheRecord.Tag);
-                        tabCacheHash.Add(cacheRecord.Title);
-                    }
-                    var tabCacheHashCode = tabCacheHash.ToHashCode();
-
-                    if (_lastCacheHashCode != tabCacheHashCode)
-                    {
-                        _lastCacheHashCode = tabCacheHashCode;
-                        var timeoutToken = new CancellationTokenSource(3000);
-
-                        var cacheDetails = new TabControlCacheRecord(_newQueryCount, cacheRecords.ToArray());
-                        await File.WriteAllTextAsync(_cachePath, JsonSerializer.Serialize(cacheDetails), timeoutToken.Token);
-                    }
-                }
+                _boldFontCache.Clear();
             }
-            catch
-            {
-                //Alternate between the main cache file and the backup one to help
-                //deal with any kind of weirdness and reduce the chance of data loss
-                if (_cachePath.Equals(CacheFilePath))
-                    _cachePath = CacheBackupFilePath;
-                else
-                    _cachePath = CacheFilePath;
-            }
-            finally
-            {
-                _cacheOpenTabsTimer.Start();
-            }
+
+            base.Dispose(disposing);
         }
 
+        private void _cacheOpenTabsTimer_Tick(object? sender, EventArgs e)
+            => _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, force: false);
+
+        /// <summary>
+        /// Saves the session one last time and stops the periodic saving. Call when the app is closing.
+        /// </summary>
+        /// <remarks>Saving is synchronous, so we don't need to stop and start the timer on each tick.</remarks>
         public void SaveSessionCacheAndStopSession()
         {
-            this._cacheOpenTabsTimer.Stop();
-            _cacheOpenTabsTimer_Tick(null, EventArgs.Empty);
+            _cacheOpenTabsTimer.Stop();
+            _sessionCache.Save(TabPages.OfType<CustomTabPage>(), SelectedTab as CustomTabPage, force: true);
         }
-
-        private record TabControlCacheRecord(int NewQueryCount, TabPageCacheRecord[] Records);
-        private record TabPageCacheRecord(string Tag, string Title, bool IsSelectedTab);
     }
 }

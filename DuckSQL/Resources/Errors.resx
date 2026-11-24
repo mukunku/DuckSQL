@@ -203,4 +203,8 @@ Please try another file format or reduce the amount of columns you are exporting
     <value>File export failed</value>
     <comment>Shown when an exception is encountered during a file export</comment>
   </data>
+  <data name="UnsupportedExportFileTypeErrorMessageFormat" xml:space="preserve">
+    <value>DuckSQL can't export to '{0}' files.</value>
+    <comment>Shown when the user tries to export results to a file type we don't support. {0} is the file extension they picked (e.g. ".txt")</comment>
+  </data>
 </root>

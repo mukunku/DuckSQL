@@ -114,7 +114,7 @@ namespace DuckSQL.Types
             catch (Exception ex)
             {
                 success = false;
-                return $"Error while serializing Struct field: {Environment.NewLine}{Environment.NewLine}{ex}";
+                return $"Error while serializing Struct field: {Env.DoubleNewLine}{ex}";
             }
         }
 

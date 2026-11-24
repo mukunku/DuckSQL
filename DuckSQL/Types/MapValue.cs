@@ -122,6 +122,8 @@ namespace DuckSQL.Types
                     key = dt.ToString(Env.DateTimeFormat);
                 else if (map.Key is DateOnly dateOnly)
                     key = dateOnly.ToString(Env.DateOnlyFormat);
+                else if (map.Key is TimeOnly timeOnly)
+                    key = timeOnly.ToString(Env.TimeOnlyFormat);
                 else
                     key = map.Key?.ToString() ?? string.Empty;
 
@@ -130,6 +132,8 @@ namespace DuckSQL.Types
                     value = dt2.ToString(Env.DateTimeFormat);
                 else if (map.Value is DateOnly dateOnly)
                     value = dateOnly.ToString(Env.DateOnlyFormat);
+                else if (map.Value is TimeOnly timeOnly)
+                    value = timeOnly.ToString(Env.TimeOnlyFormat);
                 else
                     value = map.Value?.ToString() ?? string.Empty;
 

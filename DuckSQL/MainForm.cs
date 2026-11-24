@@ -3,6 +3,7 @@ using DuckSQL.Controls;
 using DuckSQL.Exceptions;
 using DuckSQL.Helpers;
 using DuckSQL.Resources;
+using DuckDB.NET.Data;
 using MiniExcelLibs;
 using System.Data;
 using System.Diagnostics;
@@ -21,8 +22,15 @@ namespace DuckSQL
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            Env.TryClaimPrimaryInstance(); // Released in OnFormClosed.
+
+            //If this isn't the "primary" instance its tabs won't be sessioncache'd.
+            //We signify this to the user by adding a suffix in the app title.
+            if (!Env.IsPrimaryInstance())
+                Text += " [NO SESSION]";
+
             tabControl1.TabPages.Clear();
-            tabControl1.CreateNewTab();
+            tabControl1.NewQuery();
             tabControl1.QueryExecuted += QueryExecutedEventHandler;
             tabControl1.QueryExecutionStarted += QueryExecutionStartedEventHandler;
             tabControl1.DragDrop += MainForm_DragDrop;
@@ -37,24 +45,24 @@ namespace DuckSQL
 
         private void newToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            CreateNewTabOrSwitchToExisting();
+            tabControl1.NewQuery();
         }
 
-        private async void fileOpenToolStripMenuItem_Click(object sender, EventArgs e)
+        private void fileOpenToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
                 MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.FileOpen);
-                await OpenNewFileOrFolderAsync(openFileDialog.FileName);
+                tabControl1.OpenFilesOrFolders(openFileDialog.FileName);
             }
         }
 
-        private async void openFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        private void openFolderToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (openFolderDialog.ShowDialog() == DialogResult.OK)
             {
                 MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.FolderOpen);
-                await OpenNewFileOrFolderAsync(openFolderDialog.SelectedPath);
+                tabControl1.OpenFilesOrFolders(openFolderDialog.SelectedPath);
             }
         }
 
@@ -65,11 +73,9 @@ namespace DuckSQL
 
         private async void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            tabControl1.SaveSessionCacheAndStopSession();
-
             var eventTask = new MenuBarClickEvent() { Action = MenuBarClickEvent.ActionId.Exit }.Record();
             var timeout = Task.Delay(200);
-            
+
             await Task.WhenAny(timeout, eventTask);
 
             Application.Exit();
@@ -83,32 +89,32 @@ namespace DuckSQL
 
                 if (selectedDateFormat != DateFormat.Custom)
                 {
-                    AppSettings.DateTimeDisplayFormat = selectedDateFormat;
+                    SetNewDateFormat(selectedDateFormat);
                 }
                 else
                 {
-                    string? customDateFormat = null;
-                    if (AppSettings.DateTimeDisplayFormat == DateFormat.Custom)
-                    {
-                        customDateFormat = AppSettings.CustomDateFormat;
-                    }
-
-                    using var customDateFormatInputForm = new CustomDateFormatInputForm(customDateFormat);
+                    using var customDateFormatInputForm = new CustomDateFormatInputForm(AppSettings.CustomDateFormat);
                     if (customDateFormatInputForm.ShowDialog(this) == DialogResult.OK)
                     {
-                        AppSettings.DateTimeDisplayFormat = DateFormat.Custom;
-                        AppSettings.CustomDateFormat = customDateFormatInputForm.UserEnteredDateFormat;
+                        SetNewDateFormat(DateFormat.Custom, customDateFormatInputForm.UserEnteredDateFormat);
                     }
                 }
 
-                this.RefreshDateFormatMenuItemSelection();
-
-                // Refresh all query editor controls
-                foreach (TabPage tabPage in tabControl1.TabPages)
+                void SetNewDateFormat(DateFormat dateFormat, string? customDateFormat = null)
                 {
-                    if (tabPage.Controls[0] is QueryEditorControl editor)
+                    AppSettings.DateTimeDisplayFormat = dateFormat;
+                    if (dateFormat == DateFormat.Custom)
+                        AppSettings.CustomDateFormat = customDateFormat;
+
+                    RefreshDateFormatMenuItemSelection();
+
+                    // Refresh all initialized query editor controls
+                    foreach (var tabPage in tabControl1.TabPages.OfType<CustomTabPage>())
                     {
-                        editor.RefreshControl();
+                        if (tabPage.HasQueryEditor())
+                        {
+                            tabPage.GetQueryEditor().RefreshControl();
+                        }
                     }
                 }
             }
@@ -174,14 +180,14 @@ namespace DuckSQL
 
             if (MessageBox.Show(this,
                 Resources.Strings.LanguageChangeConfirmationMessage,
-                Resources.Strings.LanguageChangeConfirmationTitle,
+                Resources.Strings.RestartApplicationConfirmationTitle,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             {
                 return;
             }
 
-            AppSettings.UserSelectedCulture = newCultureInfo;
-            UtilityMethods.RestartApplication();
+            //Only save the new culture if the restart goes through; closing can still be cancelled (e.g. unsaved tabs)
+            UtilityMethods.RestartApplication(() => AppSettings.UserSelectedCulture = newCultureInfo);
         }
 
         private void aboutToolStripMenuItem_Click(object _, EventArgs e)
@@ -191,7 +197,7 @@ namespace DuckSQL
             aboutBox.ShowDialog();
         }
 
-        private async void MainForm_DragDrop(object? _, DragEventArgs e)
+        private void MainForm_DragDrop(object? _, DragEventArgs e)
         {
             var files = e.Data?.GetData(DataFormats.FileDrop) as string[];
             if (files?.Length > 0)
@@ -205,34 +211,7 @@ namespace DuckSQL
                 }
 
                 MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.DragDrop);
-                await OpenNewFileOrFolderAsync(files);
-            }
-        }
-
-        private async Task OpenNewFileOrFolderAsync(params string[] fileOrFolderPaths)
-        {
-            if (fileOrFolderPaths is null || fileOrFolderPaths.Length == 0)
-                return;
-
-            //Check if the last tab is an empty one so we can reuse its name
-            var skipTabCountIncrement = tabControl1.TabCount > 0 && tabControl1.IsEmptyQueryEditor(tabControl1.TabCount - 1);
-            int tabIndex = -1;
-            foreach (var fileOrFolderPath in fileOrFolderPaths)
-            {
-                tabIndex = tabControl1.CreateNewTab(fileOrFolderPath, skipTabCountIncrement);
-                skipTabCountIncrement = false;
-            }
-            tabControl1.SelectedIndex = tabIndex;
-
-            if (tabControl1.TabCount > 1 && tabControl1.IsEmptyQueryEditor(tabControl1.TabCount - 2))
-            {
-                //If the last tab was an empty one, get rid of it
-                tabControl1.TabPages.RemoveAt(tabControl1.TabCount - 2);
-            }
-
-            if (tabControl1.GetSelectedTab().HasNewQueryTitle)
-            {
-                tabControl1.SelectedTab?.Text = tabControl1.SelectedTab?.Text.Trim() + " *"; //mark the new query tab as dirty
+                tabControl1.OpenFilesOrFolders(files);
             }
         }
 
@@ -275,8 +254,14 @@ namespace DuckSQL
             }
             else if (e.Control && e.KeyCode == Keys.T)
             {
-                CreateNewTabOrSwitchToExisting();
+                tabControl1.NewQuery();
                 e.Handled = true;
+            }
+            else if (e.Control && e.KeyCode == Keys.R)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                UtilityMethods.RestartApplication();
             }
         }
 
@@ -292,60 +277,106 @@ namespace DuckSQL
             }
         }
 
+        //Every way of closing the app ends up here (X button, Alt+F4, File > Exit, restarts, Windows shutdown).
+        //Closing can still be cancelled at this point (e.g. Windows raises this while asking apps whether it may shut down,
+        //and another app can then cancel the shutdown), so the session cleanup waits for OnFormClosed.
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+
+            if (e.Cancel)
+                return;
+
+            //Secondary instances ("[NO SESSION]") don't save their session, so closing one throws away its unsaved tabs
+            if (!Env.IsPrimaryInstance())
+            {
+                var unsavedTabCount = tabControl1.GetTabs().Count(tab => tab.IsDirty);
+
+                if (unsavedTabCount > 0 && MessageBox.Show(this,
+                    Resources.Strings.NoSessionUnsavedTabsWarningMessageFormat.Format(unsavedTabCount),
+                    Resources.Strings.UnsavedChangesWarningTitle,
+                    MessageBoxButtons.OKCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.OK)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+        }
+
+        //Only raised once closing is certain, including when a Windows shutdown actually goes ahead
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            tabControl1.SaveSessionCacheAndStopSession();
+            Env.TryReleasePrimaryInstance(); // Counterpart of ClaimPrimaryInstance in MainForm_Load
+
+            base.OnFormClosed(e);
+        }
+
         private async Task ExportResultsAsync(FileType defaultFileType, string? filePathWithExtension = null)
         {
             string? filePath = null;
             LoadingIcon? loadingIcon = null;
             FileType? rerunType = null;
-            var dataTable = tabControl1.SelectedTab?.Controls[0] is QueryEditorControl editor ? editor.GetDataSource() : null;
+            var editor = tabControl1.SelectedTab?.Controls[0] as QueryEditorControl;
+            var dataTable = editor?.GetDataSource();
+
             if (dataTable is null || dataTable.Columns.Count == 0)
                 return;
 
             try
             {
                 this.exportFileDialog.Title = Resources.Strings.RecordsToBeExportedTitleFormat.Format(dataTable.Rows.Count);
-                this.exportFileDialog.Filter = "CSV file (*.csv)|*.csv|JSON file (*.json)|*.json|Excel '93 file (*.xls)|*.xls|Excel '07 file (*.xlsx)|*.xlsx";
+                this.exportFileDialog.Filter = "CSV file (*.csv)|*.csv|Excel '93 file (*.xls)|*.xls|Excel '07 file (*.xlsx)|*.xlsx|JSON file (*.json)|*.json|Parquet file (*.parquet)|*.parquet";                 //Filters must stay in FileType enum order so FilterIndex picks the right one
                 this.exportFileDialog.FilterIndex = (int)defaultFileType + 1;
                 if (filePathWithExtension is not null || this.exportFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    filePath = filePathWithExtension ?? this.exportFileDialog.FileName;
-                    CleanupFile(filePath); //Delete any existing file (user already confirmed any overwrite)
-
-                    var fileExtension = Path.GetExtension(filePath);
+                    var selectedFilePath = filePathWithExtension ?? this.exportFileDialog.FileName;
+                    var fileExtension = Path.GetExtension(selectedFilePath);
                     FileType? selectedFileType = UtilityMethods.ExtensionToFileType(fileExtension);
                     if (selectedFileType is null)
-                        throw new ArgumentOutOfRangeException(fileExtension);
+                    {
+                        MessageBox.Show(this, Resources.Errors.UnsupportedExportFileTypeErrorMessageFormat.Format(fileExtension),
+                            Resources.Errors.ExportFailedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    filePath = selectedFilePath;
+                    CleanupFile(filePath); //Delete any existing file (user already confirmed any overwrite)
 
                     var stopWatch = Stopwatch.StartNew();
                     loadingIcon = this.ShowLoadingIcon(Resources.Strings.ExportingDataLabelText, dataTable.DefaultView.Count * dataTable.Columns.Count);
 
-                    await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
-                        loadingIcon, tabControl1.SelectedTab?.Text);
+                    try
+                    {
+                        await ExportResultsImpl(dataTable, selectedFileType.Value, filePath, loadingIcon.CancellationToken,
+                            loadingIcon, tabControl1.SelectedTab?.Text, editor?.LastExecutedQuery);
+                    }
+                    finally
+                    {
+                        loadingIcon.Hide(); //Hide before any success/error/cancel message box is shown
+                    }
 
                     stopWatch.Stop();
-                    loadingIcon.Hide();
+                    loadingIcon.CancellationToken.ThrowIfCancellationRequested();
+                    long fileSizeInBytes = new FileInfo(filePath).Length;
+                    var fileSizeInMegaBytes = (float)Math.Round((fileSizeInBytes / 1024.0) / 1024.0, 2);
 
-                    if (loadingIcon.CancellationToken.IsCancellationRequested)
-                    {
-                        CleanupFile(filePath);
-                        MessageBox.Show(Resources.Strings.ExportCancelledMessage, Resources.Strings.ExportCancelledTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        long fileSizeInBytes = new FileInfo(filePath).Length;
-                        var fileSizeInMegaBytes = (float)Math.Round((fileSizeInBytes / 1024.0) / 1024.0, 2);
+                    FileExportEvent.FireAndForget(selectedFileType.Value, fileSizeInMegaBytes, dataTable.Rows.Count, dataTable.Columns.Count, stopWatch.ElapsedMilliseconds);
 
-                        FileExportEvent.FireAndForget(selectedFileType.Value, fileSizeInMegaBytes, dataTable.Rows.Count, dataTable.Columns.Count, stopWatch.ElapsedMilliseconds);
-
-                        MessageBox.Show(this,
-                            Resources.Strings.ExportSuccessfulMessageFormat.Format(fileSizeInMegaBytes),
-                            Resources.Strings.ExportSuccessfulTitle,
-                            MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
+                    MessageBox.Show(this,
+                        Resources.Strings.ExportSuccessfulMessageFormat.Format(fileSizeInMegaBytes),
+                        Resources.Strings.ExportSuccessfulTitle,
+                        MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
-            catch (IOException ex)
+            catch (OperationCanceledException)
             {
+                CleanupFile(filePath);
+                MessageBox.Show(Resources.Strings.ExportCancelledMessage, Resources.Strings.ExportCancelledTitle, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex) when (ex is IOException or DuckDBException or ParquetExportException)
+            {
+                //DuckDBException: parquet export re-runs the query, which can fail (e.g. source file moved or isn't a SELECT)
                 CleanupFile(filePath);
                 MessageBox.Show(ex.Message, Resources.Errors.ExportFailedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -373,7 +404,7 @@ namespace DuckSQL
 
             if (rerunType is not null)
             {
-                await ExportResultsAsync(default, filePath is not null ? Path.ChangeExtension(filePath, rerunType.Value.ToString()) : filePath);
+                await ExportResultsAsync(default, filePath is not null ? Path.ChangeExtension(filePath, rerunType.Value.GetExtension()) : filePath);
             }
 
             static void CleanupFile(string? filePath)
@@ -411,7 +442,8 @@ namespace DuckSQL
            string filePath,
            CancellationToken cancellationToken,
            IProgress<int> progress,
-           string? sourceTabName)
+           string? sourceTabName,
+           string? sourceQuery)
         {
             if (fileType == FileType.CSV)
             {
@@ -447,11 +479,20 @@ namespace DuckSQL
                     return Task.CompletedTask;
                 }
 
-                return WriteDataToExcel2007File(dataTable, filePath, "Sheet1", cancellationToken, progress);
+                return WriteDataToExcel2007File(dataTable, filePath, sourceTabName, cancellationToken, progress);
             }
             else if (fileType == FileType.JSON)
             {
                 return WriteDataToJSONFile(dataTable, filePath, cancellationToken, progress);
+            }
+            else if (fileType == FileType.PARQUET)
+            {
+                //Parquet exports re-run the query, so we need it. Shouldn't happen since results only exist after a query succeeds.
+                if (string.IsNullOrWhiteSpace(sourceQuery))
+                    throw new ParquetExportException("Can't export to parquet because the query that produced the results is unknown. " +
+                        "Please re-run the query and try exporting again.");
+
+                return WriteDataToParquetFile(dataTable, sourceQuery, filePath, cancellationToken, progress);
             }
             else
             {
@@ -487,6 +528,7 @@ namespace DuckSQL
 
                 string dateFormat = Env.DateTimeFormat;
                 string dateOnlyFormat = Env.DateOnlyFormat;
+                string timeOnlyFormat = Env.TimeOnlyFormat;
                 foreach (DataRowView row in dataTable.DefaultView)
                 {
                     rowBuilder.Clear();
@@ -516,6 +558,10 @@ namespace DuckSQL
                         {
                             rowBuilder.Append(UtilityMethods.CleanCSVValue(dateOnly.ToString(dateOnlyFormat)));
                         }
+                        else if (value is TimeOnly timeOnly)
+                        {
+                            rowBuilder.Append(UtilityMethods.CleanCSVValue(timeOnly.ToString(timeOnlyFormat)));
+                        }
                         else
                         {
                             var stringValue = value!.ToString()!; //we never have `null` only `DBNull.Value`
@@ -534,6 +580,7 @@ namespace DuckSQL
             {
                 string dateFormat = Env.DateTimeFormat;
                 string dateOnlyFormat = Env.DateOnlyFormat;
+                string timeOnlyFormat = Env.TimeOnlyFormat;
                 using var fs = new FileStream(path, FileMode.OpenOrCreate);
                 var excelWriter = new ExcelWriter(fs);
                 excelWriter.BeginWrite();
@@ -575,6 +622,10 @@ namespace DuckSQL
                         {
                             excelWriter.WriteCell(i + 1, j, dateOnly.ToString(dateOnlyFormat));
                         }
+                        else if (value is TimeOnly timeOnly)
+                        {
+                            excelWriter.WriteCell(i + 1, j, timeOnly.ToString(timeOnlyFormat));
+                        }
                         else
                         {
                             var stringValue = value.ToString();
@@ -605,12 +656,14 @@ namespace DuckSQL
                 excelWriter.EndWrite();
             }, cancellationToken);
 
-        private static async Task WriteDataToExcel2007File(DataTable mainDataSource, string path, string sheetName, CancellationToken cancellationToken, IProgress<int> progress)
+        private static async Task WriteDataToExcel2007File(DataTable mainDataSource, string path, string? sheetName, CancellationToken cancellationToken, IProgress<int> progress)
         {
             const int MAX_XLSX_SHEET_NAME_LENGTH = 31;
 
-            //sanitize sheet name
-            sheetName = Regex.Replace(sheetName, "[^a-zA-Z0-9 _\\-()]", string.Empty).Left(MAX_XLSX_SHEET_NAME_LENGTH);
+            //sanitize sheet name.
+            sheetName = Regex.Replace(sheetName ?? string.Empty, "[^a-zA-Z0-9 _\\-()]", string.Empty).Trim().Left(MAX_XLSX_SHEET_NAME_LENGTH);
+            if (string.IsNullOrWhiteSpace(sheetName))
+                sheetName = "Sheet1"; //sheet names can't be empty
 
             using var fs = new FileStream(path, FileMode.OpenOrCreate);
             await fs.SaveAsAsync(mainDataSource, printHeader: true, sheetName, ExcelType.XLSX, configuration: null, progress, cancellationToken);
@@ -643,6 +696,56 @@ namespace DuckSQL
                     jsonWriter.WriteEndObject();
                 }
                 jsonWriter.WriteEndArray();
+            }, cancellationToken);
+
+        private static Task WriteDataToParquetFile(DataTable dataTable, string query, string path, CancellationToken cancellationToken, IProgress<int> progress)
+            => Task.Run(() =>
+            {
+                //Re-run the source query straight into a parquet file so DuckDB preserves the exact column types (structs, lists, maps, etc.)
+                //Trailing semicolons aren't allowed inside COPY (...) and the newline guards against a trailing line comment
+                var sourceQuery = query.Trim().TrimEnd(';').TrimEnd();
+                var copyQuery = $"SELECT * FROM ({sourceQuery}\n) {GetOrderByClause(dataTable)}";
+
+                using var connection = new DuckDBConnection("Data Source=:memory:");
+                connection.Open();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = $"COPY ({copyQuery}) TO '{path.Replace("'", "''")}' (FORMAT parquet, COMPRESSION zstd);";
+
+                using var cancellationRegistration = cancellationToken.Register(command.Cancel);
+                try
+                {
+                    command.ExecuteNonQuery();
+                }
+                catch (Exception ex) when (cancellationToken.IsCancellationRequested && ex is OperationCanceledException or DuckDBException)
+                {
+                    return; //The caller cleans up the partially written file
+                }
+
+                progress.Report(dataTable.DefaultView.Count * dataTable.Columns.Count);
+
+                //Carry over any sorting the user applied in the grid. Columns are referenced by position since
+                //DataTable may have renamed duplicate column names (e.g. `SELECT a, a`)
+                static string GetOrderByClause(DataTable dataTable)
+                {
+                    var sort = dataTable.DefaultView.Sort;
+                    if (string.IsNullOrWhiteSpace(sort))
+                        return string.Empty;
+
+                    foreach (DataColumn column in dataTable.Columns)
+                    {
+                        foreach (var columnToken in new[] { $"[{column.ColumnName}]", $"[{column.ColumnName.Replace("]", "\\]")}]", column.ColumnName })
+                        {
+                            //DataView sorts DBNull first when ascending, so match that
+                            if (sort.Equals($"{columnToken} ASC", StringComparison.Ordinal) || sort.Equals(columnToken, StringComparison.Ordinal))
+                                return $"ORDER BY {column.Ordinal + 1} ASC NULLS FIRST";
+                            if (sort.Equals($"{columnToken} DESC", StringComparison.Ordinal))
+                                return $"ORDER BY {column.Ordinal + 1} DESC NULLS LAST";
+                        }
+                    }
+
+                    throw new ParquetExportException($"Unable to translate grid sort '{sort}' to SQL. Please clear the sort and try exporting again.");
+                }
             }, cancellationToken);
 
         private void QueryExecutedEventHandler(object? sender, QueryEditorControl.QueryExecutedEventArgs args)
@@ -679,7 +782,7 @@ namespace DuckSQL
 
         private void ToggleSaveQueryFileMenuItem(bool? enable = null)
         {
-            saveQueryToolStripMenuItem.Enabled = tabControl1.SelectedTab?.Text.Trim().EndsWith('*') == true;
+            saveQueryToolStripMenuItem.Enabled = (tabControl1.SelectedTab as CustomTabPage)?.IsDirty == true;
         }
 
         private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
@@ -709,38 +812,17 @@ namespace DuckSQL
             var wasEmptyHotbarDoubleClicked = emptyHotbarAreaRectangle.Contains(e.Location);
             if (wasEmptyHotbarDoubleClicked)
             {
-                CreateNewTabOrSwitchToExisting();
+                tabControl1.NewQuery();
             }
         }
 
-        private void CreateNewTabOrSwitchToExisting()
-        {
-            var tabIndex = tabControl1.FindEmptyQueryEditorTabIndex();
-            if (tabIndex is not null)
-            {
-                tabControl1.SelectedIndex = tabIndex.Value;
-                return;
-            }
-
-            tabIndex = tabControl1.CreateNewTab();
-            tabControl1.SelectedIndex = tabIndex.Value;
-        }
-
-        private async void openQueryToolStripMenuItem_Click(object sender, EventArgs e)
+        private void openQueryToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (openQueryDialog.ShowDialog() == DialogResult.OK)
             {
-                foreach(var tab in tabControl1.TabPages)
-                {
-                    if (tab is TabPage tabPage && tabPage.Tag is string tag && tag == openQueryDialog.FileName)
-                    {
-                        tabControl1.SelectedTab = tabPage;
-                        return;
-                    }
-                }
-
+                //We might have switched to an already open tab but lets record the analytics regardless for simplicity
                 MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.QueryOpen);
-                await OpenNewFileOrFolderAsync(openQueryDialog.FileName);
+                tabControl1.OpenFilesOrFolders(openQueryDialog.FileName);
             }
         }
 
@@ -752,20 +834,18 @@ namespace DuckSQL
 
             if (selectedTab.IsDirty)
             {
-                var trimmedTabTitle = tabControl1.SelectedTab!.Text.Trim(' ', '*');
-                saveQueryDialog.FileName = trimmedTabTitle.EndsWith(".sql") ? trimmedTabTitle : (trimmedTabTitle + ".sql");
+                var tabTitle = selectedTab.Title;
+                saveQueryDialog.FileName = UtilityMethods.IsSqlFile(tabTitle) ? tabTitle : (tabTitle + ".sql");
 
                 var shouldSave = selectedTab.IsFileBackedTab || saveQueryDialog.ShowDialog() == DialogResult.OK;
                 if (shouldSave)
                 {
-                    var filePath = selectedTab.IsFileBackedTab ? (string)tabControl1.SelectedTab.Tag! : saveQueryDialog.FileName;
+                    var filePath = selectedTab.IsFileBackedTab ? selectedTab.FilePath! : saveQueryDialog.FileName;
 
                     MenuBarClickEvent.FireAndForget(MenuBarClickEvent.ActionId.QuerySave);
-                    File.WriteAllText(filePath, tabControl1.GetSelectedTab().GetQueryEditor().QueryText);
-                    tabControl1.SelectedTab.Text = Path.GetFileName(filePath);
-                    tabControl1.SelectedTab.Tag = filePath;
+                    File.WriteAllText(filePath, selectedTab.CurrentText);
+                    selectedTab.MarkSaved(filePath); //raises TabDirtyStateChanged, which updates the save menu item
                     Invalidate();
-                    ToggleSaveQueryFileMenuItem();
                 }
             }
         }

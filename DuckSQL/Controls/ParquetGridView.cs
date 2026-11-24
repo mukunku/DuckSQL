@@ -3,6 +3,7 @@ using DuckSQL.Helpers;
 using DuckSQL.Types;
 using System.ComponentModel;
 using System.Data;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -13,7 +14,7 @@ namespace DuckSQL.Controls
     {
         //Actual number is around 43k (https://stackoverflow.com/q/52792876/1458738)
         //But let's use something smaller to increase rendering performance.
-        public const int MAX_CHARACTERS_THAT_CAN_BE_RENDERED_IN_A_CELL = 2000;
+        public const int MAX_CHARACTERS_THAT_CAN_BE_RENDERED_IN_A_CELL = 500;
         const string FORMATTING_ERROR_TEXT = "#ERR";
 
         private Theme _gridTheme = Theme.LightModeTheme;
@@ -49,6 +50,7 @@ namespace DuckSQL.Controls
         private bool isLeftClickButtonDown = false;
         private ContextMenuStrip? _contextMenu = null;
         private static readonly Regex _validColumnNameRegex = new Regex("^[a-zA-Z0-9_]+$");
+        private readonly Dictionary<Font, Font> _italicFontCache = [];
 
         //We keep track of format overrides with the column name so we can keep formatting the same if the user adds/removes fields from the same file
         private readonly Dictionary<string, IByteArrayValue.DisplayFormat> byteArrayColumnsWithFormatOverrides = new();
@@ -125,6 +127,8 @@ namespace DuckSQL.Controls
                     column.DefaultCellStyle.Format = Env.DateTimeFormat;
                 else if (column.ValueType == typeof(DateOnly))
                     column.DefaultCellStyle.Format = Env.DateOnlyFormat;
+                else if (column.ValueType == typeof(TimeOnly))
+                    column.DefaultCellStyle.Format = Env.TimeOnlyFormat;
             }
         }
 
@@ -156,12 +160,18 @@ namespace DuckSQL.Controls
                     e.Paint(e.CellBounds, DataGridViewPaintParts.All
                         & ~(DataGridViewPaintParts.ContentForeground));
 
-                    var font = new Font(e.CellStyle!.Font!, FontStyle.Italic);
+                    var baseFont = e.CellStyle?.Font ?? this.Font;
+                    if (!_italicFontCache.TryGetValue(baseFont, out var italicFont))
+                    {
+                        italicFont = new Font(baseFont, FontStyle.Italic);
+                        _italicFontCache.Add(baseFont, italicFont);
+                    }
+
                     var color = this.GridTheme.CellPlaceholderTextColor;
                     if (e.State.HasFlag(DataGridViewElementStates.Selected))
                         color = Color.White;
 
-                    TextRenderer.DrawText(e.Graphics!, "NULL", font, e.CellBounds, color,
+                    TextRenderer.DrawText(e.Graphics!, "NULL", italicFont, e.CellBounds, color,
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.PreserveGraphicsClipping);
 
                     e.Handled = true;
@@ -251,7 +261,8 @@ namespace DuckSQL.Controls
 
                 if (rowIndex >= 0 && columnIndex >= 0
                     && this[columnIndex, rowIndex].Value is IStructValue structValue
-                    && structValue.IsHuggingFaceFormat(out var data))
+                    && structValue.IsHuggingFaceFormat(out var data)
+                    && !TryShowExistingQuickPeekForm(this[columnIndex, rowIndex]))
                 {
                     Image? image;
                     try
@@ -317,15 +328,8 @@ namespace DuckSQL.Controls
 
             var clickedCell = this[e.ColumnIndex, e.RowIndex];
 
-            //Check if there's already a quick peek open for this cell
-            if (clickedCell.Tag is Guid cellUniqueTag
-                && openQuickPeekForms.TryGetValue((e.RowIndex, e.ColumnIndex), out var existingQuickPeekForm)
-                && existingQuickPeekForm.UniqueTag.Equals(cellUniqueTag))
-            {
-                //Idea: Move the form to the cursor location, maybe? Might help for multi monitor setups.
-                existingQuickPeekForm.Focus();
+            if (TryShowExistingQuickPeekForm(clickedCell))
                 return;
-            }
 
             var dataType = QuickPeekEvent.DataTypeId.Unknown;
             QuickPeekForm? quickPeekForm = null;
@@ -383,6 +387,23 @@ namespace DuckSQL.Controls
             }
 
             ShowQuickPeekForm(quickPeekForm, clickedCell, uniqueCellTag, dataType);
+        }
+
+        private bool TryShowExistingQuickPeekForm(DataGridViewCell clickedCell)
+        {
+            //Check if there's already a quick peek open for this cell
+            if (clickedCell.Tag is Guid cellUniqueTag
+                && openQuickPeekForms.TryGetValue((clickedCell.RowIndex, clickedCell.ColumnIndex), out var existingQuickPeekForm)
+                && existingQuickPeekForm.UniqueTag.Equals(cellUniqueTag))
+            {
+                //Idea: Move the form to the cursor location, maybe? Might help for multi monitor setups.
+                if (existingQuickPeekForm.WindowState == FormWindowState.Minimized)
+                    existingQuickPeekForm.WindowState = FormWindowState.Normal;
+
+                existingQuickPeekForm.Focus();
+                return true;
+            }
+            return false;
         }
 
         private void ShowQuickPeekForm(QuickPeekForm quickPeekForm, DataGridViewCell clickedCell, Guid uniqueCellTag, QuickPeekEvent.DataTypeId dataType)
@@ -467,7 +488,8 @@ namespace DuckSQL.Controls
         {
             base.OnCellFormatting(e);
 
-            var cellValueType = this[e.ColumnIndex, e.RowIndex].ValueType;
+            //It's important to not access cell values or valuetypes directly as it unshares the row
+            var cellValueType = this.Columns[e.ColumnIndex].ValueType;
             if (this.floatColumnsWithFormatOverrides.Count > 0 && cellValueType == typeof(float) && e.Value is float f)
             {
                 if (!this.floatColumnsWithFormatOverrides.TryGetValue(this.Columns[e.ColumnIndex].Name, out var userSelectedDisplayFormat))
@@ -700,7 +722,7 @@ namespace DuckSQL.Controls
                     //We can just measure a few without going through all of them.
                     colStringCollection = nonNullColumnValues
                         .Select(row => row.Field<DateTime>(i).ToString(Env.DateTimeFormat))
-                        .Take(50);
+                        .Take(25);
                 }
                 else if (gridTable.Columns[i].DataType == typeof(DateOnly))
                 {
@@ -708,6 +730,14 @@ namespace DuckSQL.Controls
                     //We can just measure a few without going through all of them.
                     colStringCollection = nonNullColumnValues
                         .Select(row => row.Field<DateOnly>(i).ToString(Env.DateOnlyFormat))
+                        .Take(10);
+                }
+                else if (gridTable.Columns[i].DataType == typeof(TimeOnly))
+                {
+                    //All time only's will probably have the same string length so no need to go through all values.
+                    //We can just measure a few without going through all of them.
+                    colStringCollection = nonNullColumnValues
+                        .Select(row => row.Field<TimeOnly>(i).ToString(Env.TimeOnlyFormat))
                         .Take(10);
                 }
                 else if (gridTable.Columns[i].DataType.ImplementsInterface<IStructValue>())
@@ -748,7 +778,7 @@ namespace DuckSQL.Controls
                 else if (this.Columns[i].CellTemplate!.GetType() == typeof(AudioPlayerDataGridViewCell))
                 {
                     this.Columns[i].Width = Math.Min(Math.Max(240, newColumnSize), maxWidth);
-                    return;
+                    continue;
                 }
                 else if (gridTable.Columns[i].DataType.ImplementsInterface<IByteArrayValue>()
                     && this.byteArrayColumnsWithFormatOverrides.TryGetValue(gridTable.Columns[i].ColumnName, out var byteArrayDisplayFormat))
@@ -763,8 +793,8 @@ namespace DuckSQL.Controls
                         .Where(value => value is not null)!;
                 }
 
-                // Get the longest string in the array. (Limit to 100k values to improve render time)
-                string? longestColString = colStringCollection.Take(forceAutoSizeColumnIndex is not null ? int.MaxValue : 100_000).MaxBy(stringValue => stringValue.Length);
+                // Get the longest string in the array. (Limit to 4k values to improve render time)
+                string? longestColString = colStringCollection.Take(forceAutoSizeColumnIndex is not null ? int.MaxValue : 4_000).MaxBy(stringValue => stringValue.Length);
                 if (longestColString is not null)
                     newColumnSize = Math.Max(newColumnSize, MeasureStringWidth(gfx, this.Font, longestColString, true));
 
@@ -1005,23 +1035,52 @@ namespace DuckSQL.Controls
 
                     if (value != DBNull.Value)
                     {
+                        //Use a standard date format so the query is always syntactically correct.
+                        //Invariant culture is required: custom format strings still resolve the calendar from
+                        //the current culture, so locales like th-TH would emit a non-Gregorian year.
                         if (valueType == typeof(DateTime))
                         {
-                            //Use a standard date format so the query is always syntactically correct
-                            queryBuilder.AppendFormat(dateValueEscapeFormat, ((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF"));
+                            //Without +00 TIMESTAMPTZ typed values don't match. Regular TIMESTAMP fields don't need it.
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                ((DateTime)value).ToString("yyyy-MM-dd HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture) + "+00");
+                        }
+                        else if (value is DateOnly dateOnly)
+                        {
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                dateOnly.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                        }
+                        else if (value is TimeOnly timeOnly)
+                        {
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                timeOnly.ToString("HH:mm:ss.FFFFFFF", CultureInfo.InvariantCulture));
+                        }
+                        else if (value is DateTimeOffset timeWithTimeZone)
+                        {
+                            //DuckDB.NET returns TIMETZ as a DateTimeOffset on a dummy date (TIMESTAMPTZ comes back as a DateTime).
+                            //Only emit the time and offset: a literal that includes the dummy date parses fine but never matches.
+                            queryBuilder.AppendFormat(CultureInfo.InvariantCulture, dateValueEscapeFormat,
+                                timeWithTimeZone.ToString("HH:mm:ss.FFFFFFFzzz", CultureInfo.InvariantCulture));
                         }
                         else if (valueType.IsNumber())
                         {
-                            var stringValue = value.ToString();
+                            //Queries always expect '.' as the decimal separator. Formatting with the current culture
+                            //would emit ',' in locales like de-DE, which breaks the query since ',' separates values inside an `IN (...)` clause.
+                            var stringValue = Convert.ToString(value, CultureInfo.InvariantCulture);
+                            //Scientific notation (1E+20) and non-finite values (NaN, Infinity, -Infinity) need to be wrapped in single quotes
                             if ((valueType == typeof(float) || valueType == typeof(double))
-                                && stringValue?.Contains('E', StringComparison.OrdinalIgnoreCase) == true)
-                                stringValue = $"'{stringValue}'"; //scientific notation values need to be wrapped in single quotes
+                                && stringValue?.Any(char.IsLetter) == true)
+                                stringValue = $"'{stringValue}'";
 
                             queryBuilder.Append(stringValue);
                         }
+                        else if (value is string stringValue)
+                        {
+                            queryBuilder.Append($"'{stringValue.Replace("'", "''")}'");
+                        }
                         else
                         {
-                            queryBuilder.Append($"'{value}'");
+                            var otherValue = value.ToString() ?? string.Empty;
+                            queryBuilder.Append($"'{otherValue.Replace("'", "''")}'");
                         }
                     }
 
@@ -1110,7 +1169,7 @@ namespace DuckSQL.Controls
                 { Checked = displayFormat == FloatDisplayFormat.Scientific };
                 scientificNotationMenuItem.Click += (object? _, EventArgs _) =>
                 {
-                    ColumnFormattedEvent.FireAndForget(scientificNotationMenuItem.Text);
+                    ColumnFormattedEvent.FireAndForget("Scientific");
 
                     if (floatColumnsWithFormatOverrides.ContainsKey(columnName))
                         floatColumnsWithFormatOverrides[columnName] = FloatDisplayFormat.Scientific;
@@ -1126,7 +1185,7 @@ namespace DuckSQL.Controls
                 { Checked = displayFormat == FloatDisplayFormat.Decimal };
                 decimalNotationMenuItem.Click += (object? _, EventArgs _) =>
                 {
-                    ColumnFormattedEvent.FireAndForget(decimalNotationMenuItem.Text);
+                    ColumnFormattedEvent.FireAndForget("Decimal");
 
                     if (floatColumnsWithFormatOverrides.ContainsKey(columnName))
                         floatColumnsWithFormatOverrides[columnName] = FloatDisplayFormat.Decimal;
@@ -1278,13 +1337,15 @@ namespace DuckSQL.Controls
                         if (value == DBNull.Value)
                             continue;
 
+                        Image? image = null;
                         var byteArray = (IByteArrayValue)value;
                         if (AudioPlayerDataGridViewCell.IsAudio(byteArray.Data, out var _)
-                            && !byteArray.ToImage(out _)) //help prevent false positives by checking for image data
+                            && !byteArray.ToImage(out image)) //help prevent false positives by checking for image data
                         {
                             isAudioColumn = true;
                             break;
                         }
+                        image?.Dispose();
                         tryCount++;
                     }
 
@@ -1318,6 +1379,12 @@ namespace DuckSQL.Controls
             //DGV doesn't call Dispose on individual cells when it is disposed. So we need to manually 
             //dispose any AudioPlayerDataGridViewCells to free resources and stop ongoing playback.
             this.DisposeAudioCells();
+
+            foreach (var font in _italicFontCache.Values)
+            {
+                font.Dispose();
+            }
+            _italicFontCache.Clear();
 
             base.Dispose(disposing);
         }
