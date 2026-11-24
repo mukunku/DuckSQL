@@ -277,7 +277,9 @@ namespace DuckSQL
             }
         }
 
-        //Every way of closing the app ends up here (X button, Alt+F4, File > Exit, restarts, Windows shutdown)
+        //Every way of closing the app ends up here (X button, Alt+F4, File > Exit, restarts, Windows shutdown).
+        //Closing can still be cancelled at this point (e.g. Windows raises this while asking apps whether it may shut down,
+        //and another app can then cancel the shutdown), so the session cleanup waits for OnFormClosed.
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
@@ -299,9 +301,15 @@ namespace DuckSQL
                     return;
                 }
             }
+        }
 
+        //Only raised once closing is certain, including when a Windows shutdown actually goes ahead
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
             tabControl1.SaveSessionCacheAndStopSession();
             Env.TryReleasePrimaryInstance(); // Counterpart of ClaimPrimaryInstance in MainForm_Load
+
+            base.OnFormClosed(e);
         }
 
         private async Task ExportResultsAsync(FileType defaultFileType, string? filePathWithExtension = null)

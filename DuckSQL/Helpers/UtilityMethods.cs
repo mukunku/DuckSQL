@@ -158,8 +158,8 @@ namespace DuckSQL.Helpers
         /// </summary>
         public static void RestartApplication()
         {
-            //Terminate this instance first. This synchronously runs MainForm.OnFormClosing, which does the
-            //final session save and releases the primary instance mutex before the new instance starts.
+            //Terminate this instance first. This synchronously runs MainForm.OnFormClosing and then OnFormClosed, which
+            //does the final session save and releases the primary instance mutex before the new instance starts.
             var exitArgs = new CancelEventArgs();
             Application.Exit(exitArgs);
             if (exitArgs.Cancel)
