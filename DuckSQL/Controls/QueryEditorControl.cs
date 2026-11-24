@@ -172,7 +172,8 @@ OFFSET {3} ";
             resultsGridView.Enabled = false;
             cancelQueryButton.Enabled = true;
 
-            var stopwatch = Stopwatch.StartNew();
+            var totalStopwatch = Stopwatch.StartNew(); //What we show the user: query + conversion + rendering
+            var stopwatch = Stopwatch.StartNew(); //Times each step separately for analytics
             var queryTask = ExecuteQueryAsync(query, _queryCancellationToken.Token);
 
             while (!queryTask.IsCompleted && !_queryCancellationToken.IsCancellationRequested)
@@ -208,6 +209,14 @@ OFFSET {3} ";
                 var conversionDuration = stopwatch.Elapsed;
 
                 stopwatch.Restart();
+
+                //Binding the grid creates the table's DefaultView, which indexes every row. Create it here so that
+                //work happens on a background thread instead of freezing the UI thread.
+                await Task.Run(() => _ = result.DefaultView);
+
+                //Building the index can't be interrupted, so honor a cancel that came in while it was running even though we did all the work already
+                _queryCancellationToken.Token.ThrowIfCancellationRequested();
+
                 this.resultsGridView.DataSource = result;
                 stopwatch.Stop();
                 var renderDuration = stopwatch.Elapsed;
@@ -239,7 +248,7 @@ OFFSET {3} ";
             {
                 queryExecutionStatusLabel.Text = _queryCancellationToken.IsCancellationRequested ?
                     Resources.Strings.QueryCancelledStatusText : Resources.Strings.QueryFinishedStatusText;
-                timeElapsedLabel.Text = stopwatch.Elapsed.ToString("mm\\:ss");
+                timeElapsedLabel.Text = totalStopwatch.Elapsed.ToString("mm\\:ss");
                 showingCountLabel.Text = result.Rows.Count.ToString();
 
                 executeQueryButton.Enabled = true;
